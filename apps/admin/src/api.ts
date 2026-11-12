@@ -64,6 +64,7 @@ export interface Service {
   id: number; name: string; name_en: string; description: string; benefits: string[]; category_id: number | null;
   price_cents: number; price_mode: PriceMode; duration_min: number; image_path: string; badge: string;
   is_featured: boolean; available: boolean; visible: boolean; sort_order: number; updated_at: string;
+  offer_cents: number; offer_label: string; offer_ends_at: string;
 }
 export interface Addon { id: number; name: string; price_cents: number; description: string; sort_order: number; active: boolean }
 export interface Promo { id: number; title: string; subtitle: string; image_path: string; starts_at: string; ends_at: string; active: boolean }

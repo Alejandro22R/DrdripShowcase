@@ -91,6 +91,8 @@
     (slide.data.services || []).forEach(function (s) { push(s.image); });
     if (slide.data.promo) push(slide.data.promo.image);
     push(slide.slots.image);
+    (slide.slots.images || []).forEach(function (i) { push(i && i.url); });
+    (slide.data.promos || []).forEach(function (p) { push(p.image); });
     (slide.slots.people || []).forEach(function (p) { push(p.image); });
     return urls;
   }
@@ -250,6 +252,15 @@
 
   /** Fits the visible slide again after fonts or images change its size. */
   Player.prototype.refit = function () {
+    var self = this;
+    // Entrance animations move elements a little, which would read as overflow.
+    // Measuring waits until the slide has settled.
+    var wait = (this.settleAt || 0) - Date.now();
+    if (wait > 0) {
+      clearTimeout(this.refitTimer);
+      this.refitTimer = setTimeout(function () { self.refit(); }, wait + 50);
+      return;
+    }
     if (this.current && this.current.el.parentNode) V.fit(this.current.el);
   };
 
@@ -384,6 +395,7 @@
       self.stage.classList.toggle('is-full', rendered.fullBleed);
       // Fit only now: the header may have just appeared or gone, changing the room available.
       V.fit(rendered.el);
+      self.settleAt = Date.now() + (self.quality === 'alta' ? 2400 : 700);
       rendered.el.classList.add('is-active');
     };
     var drop = function () {

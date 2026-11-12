@@ -191,11 +191,11 @@ function Promos() {
 
 export function Catalog() {
   return (
-    <Page title="Complementos, categorías y promociones">
+    <Page title="Promociones y extras" subtitle="Promociones, complementos (IV Add-ins) y categorías.">
       <div class="stack">
+        <Promos />
         <Addons />
         <Categories />
-        <Promos />
       </div>
     </Page>
   );

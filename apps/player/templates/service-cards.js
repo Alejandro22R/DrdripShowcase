@@ -11,12 +11,13 @@
       : h('div', { class: 'card-icon' }, V.icon(service.icon));
     return h('article', { class: 'card anim' + (service.available ? '' : ' is-unavailable') },
       service.badge ? h('span', { class: 'badge card-badge' }, service.badge) : null,
+      V.offerSeal(service, 'card-seal'),
       media,
       h('h2', { class: 'card-name' }, service.name),
       service.description ? h('p', { class: 'card-text' }, service.description) : null,
       h('div', { class: 'card-foot' },
         service.duration ? h('span', { class: 'card-duration' }, service.duration) : null,
-        service.available ? V.price(service.price) : h('span', { class: 'menu-na' }, 'No disponible')));
+        service.available ? V.servicePrice(service) : h('span', { class: 'menu-na' }, 'No disponible')));
   };
 
   V.registerTemplate('service-cards', {

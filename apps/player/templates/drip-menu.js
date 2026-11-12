@@ -9,9 +9,10 @@
       h('span', { class: 'menu-name' },
         service.name,
         service.badge ? h('span', { class: 'badge' }, service.badge) : null,
+        service.offer ? h('span', { class: 'badge badge-offer' }, service.offer.label) : null,
         showDuration && service.duration ? h('span', { class: 'menu-duration' }, service.duration) : null),
       h('span', { class: 'menu-dots' }),
-      service.available ? V.price(service.price) : h('span', { class: 'menu-na' }, 'No disponible'));
+      service.available ? V.servicePrice(service) : h('span', { class: 'menu-na' }, 'No disponible'));
   };
 
   V.registerTemplate('drip-menu', {

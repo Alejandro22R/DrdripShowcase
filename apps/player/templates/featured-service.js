@@ -27,7 +27,8 @@
             : h('div', { class: 'featured-symbol' }, V.symbol()),
           service.badge ? h('span', { class: 'badge' }, service.badge) : null,
           service.duration ? h('div', { class: 'featured-duration' }, service.duration) : null,
-          service.available ? V.price(service.price, 'price-big') : h('span', { class: 'menu-na' }, 'No disponible')));
+          service.offer ? h('div', { class: 'featured-offer' }, V.offerSeal(service), service.offer.until ? h('span', { class: 'kicker' }, service.offer.until) : null) : null,
+          service.available ? V.servicePrice(service, 'price-big') : h('span', { class: 'menu-na' }, 'No disponible')));
     },
   });
 })(typeof window !== 'undefined' ? window : globalThis);

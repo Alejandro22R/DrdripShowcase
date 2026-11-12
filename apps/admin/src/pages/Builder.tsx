@@ -1,12 +1,14 @@
 import {
-  DAY_LABELS, GRID_OPTIONS, TEMPLATES, THEMES, THEME_LABELS, TRANSITIONS, TRANSITION_LABELS, getTemplate,
-  type Person, type SlideSchedule, type SlideSlots, type SourceType, type Transition,
+  DAY_LABELS, GALLERY_LAYOUTS, GALLERY_LAYOUT_LABELS, GRID_OPTIONS, TEMPLATES, THEMES, THEME_LABELS, TRANSITIONS, TRANSITION_LABELS, getTemplate,
+  type GalleryImage, type GalleryLayout, type Person, type SlideSchedule, type SlideSlots, type SourceType, type Transition,
 } from '@drdrip/shared';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { api, getToken, type Category, type Promo, type Screen, type Service, type Slide, type Version } from '../api';
+import { api, getToken, upload, type Category, type Promo, type Screen, type Service, type Slide, type Version } from '../api';
 import { Field, ImagePicker, LinesInput, Loading, Modal, Toggle, confirm, formatDate, prompt, run, showError, toast, useLoad } from '../ui';
 
-const SOURCE_LABELS: Record<SourceType, string> = { category: 'Una categoría completa', services: 'Servicios elegidos a mano', promo: 'Una promoción' };
+const SOURCE_LABELS: Record<SourceType, string> = { category: 'Una categoría completa', services: 'Servicios elegidos a mano', offers: 'Todos los servicios en oferta', promo: 'Una promoción' };
+
+const TEMPLATE_GROUPS = ['Menú y precios', 'Fotos', 'Ofertas y promociones', 'Marca', 'Otros'] as const;
 
 // --- Live preview ----------------------------------------------------------------
 
@@ -57,13 +59,14 @@ function SourceEditor(props: { slots: SlideSlots; allowed: SourceType[]; service
       {allowed.length > 1 && (
         <div class="segmented">
           {allowed.map((t) => (
-            <button class={type === t ? 'active' : ''} onClick={() => setSource(t === 'category' ? { type: t, categoryId: props.categories[0]?.id } : t === 'services' ? { type: t, serviceIds: [] } : { type: t, promoId: props.promos[0]?.id })}>
+            <button class={type === t ? 'active' : ''} onClick={() => setSource(t === 'category' ? { type: t, categoryId: props.categories[0]?.id } : t === 'services' ? { type: t, serviceIds: [] } : t === 'offers' ? { type: t } : { type: t, promoId: props.promos[0]?.id })}>
               {SOURCE_LABELS[t]}
             </button>
           ))}
         </div>
       )}
       {type === null && allowed.length > 1 && <span class="field-error">Elige qué mostrará esta diapositiva.</span>}
+      {type === 'offers' && <p class="field-hint">Aparecen solos los servicios visibles que tengan un precio de oferta vigente. Las ofertas se ponen en Servicios, al editar cada uno.</p>}
       {(type === 'category') && (
         <select value={slots.source?.categoryId ?? ''} onChange={(e) => setSource({ type: 'category', categoryId: Number(e.currentTarget.value) })}>
           {props.categories.map((c) => <option value={c.id}>{c.name} ({props.services.filter((s) => s.category_id === c.id && s.visible).length} visibles)</option>)}
@@ -98,6 +101,57 @@ function SourceEditor(props: { slots: SlideSlots; allowed: SourceType[]; service
           </select>
         )
       )}
+    </div>
+  );
+}
+
+/** Several pictures for the gallery: upload many at once, caption, reorder and remove. */
+function ImagesEditor(props: { value: GalleryImage[]; onChange: (value: GalleryImage[]) => void }) {
+  const images = props.value;
+  const [busy, setBusy] = useState('');
+  const add = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    const added: GalleryImage[] = [];
+    let failed = 0;
+    for (let i = 0; i < files.length; i++) {
+      setBusy(`Subiendo ${i + 1} de ${files.length}…`);
+      try {
+        added.push({ url: await upload(files[i]) });
+      } catch {
+        failed++;
+      }
+    }
+    setBusy('');
+    if (added.length) props.onChange([...images, ...added]);
+    if (failed) toast(`${failed} ${failed === 1 ? 'imagen no se pudo subir' : 'imágenes no se pudieron subir'}`, 'error');
+  };
+  const move = (i: number, delta: number) => {
+    const next = [...images];
+    const [item] = next.splice(i, 1);
+    next.splice(i + delta, 0, item);
+    props.onChange(next);
+  };
+  return (
+    <div class="field wide">
+      <span class="field-label">Imágenes ({images.length})</span>
+      <div class="images-grid">
+        {images.map((image, i) => (
+          <div class="image-tile" key={image.url}>
+            <img src={image.url} alt="" />
+            <input placeholder="Texto al pie (opcional)" value={image.caption ?? ''} onInput={(e) => props.onChange(images.map((x, j) => (j === i ? { ...x, caption: e.currentTarget.value } : x)))} />
+            <div class="image-tile-tools">
+              <button class="icon-btn" title="Mover antes" disabled={i === 0} onClick={() => move(i, -1)}>←</button>
+              <button class="icon-btn" title="Mover después" disabled={i === images.length - 1} onClick={() => move(i, 1)}>→</button>
+              <button class="icon-btn danger" title="Quitar" onClick={() => props.onChange(images.filter((_, j) => j !== i))}>🗑</button>
+            </div>
+          </div>
+        ))}
+        <label class={`image-tile add${busy ? ' busy' : ''}`}>
+          <span>{busy || '+ Subir imágenes'}</span>
+          <small>Puedes elegir varias a la vez</small>
+          <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden disabled={Boolean(busy)} onChange={(e) => { const input = e.currentTarget; void add(input.files).then(() => { input.value = ''; }); }} />
+        </label>
+      </div>
     </div>
   );
 }
@@ -165,10 +219,26 @@ function SlideEditor(props: { slide: Slide; screen: Screen; services: Service[];
       {meta.sources.length > 0 && (
         <SourceEditor slots={slots} allowed={meta.sources} services={props.services} categories={props.categories} promos={props.promos} onChange={setSlots} single={meta.id === 'featured-service'} />
       )}
-      {has('columns') && (
-        <Field label="Columnas">
-          <select value={slots.columns ?? 1} onChange={(e) => setSlots({ ...slots, columns: Number(e.currentTarget.value) })}>
-            <option value="1">1 columna</option><option value="2">2 columnas</option>
+      {has('images') && <ImagesEditor value={slots.images ?? []} onChange={(v) => setSlots({ ...slots, images: v })} />}
+      {has('layout') && (
+        <Field label="Distribución">
+          <select value={slots.layout ?? 'columns'} onChange={(e) => setSlots({ ...slots, layout: e.currentTarget.value as GalleryLayout })}>
+            {GALLERY_LAYOUTS.map((l) => <option value={l}>{GALLERY_LAYOUT_LABELS[l]}</option>)}
+          </select>
+        </Field>
+      )}
+      {has('columns') && !(has('layout') && (slots.layout ?? 'columns') !== 'columns') && (
+        <Field label="Columnas" hint={meta.columnOptions ? 'Si hay más elementos, se reparten en páginas.' : undefined}>
+          <select value={slots.columns ?? meta.defaults.columns ?? 1} onChange={(e) => setSlots({ ...slots, columns: Number(e.currentTarget.value) })}>
+            {(meta.columnOptions ?? [1, 2]).map((n) => <option value={n}>{n} {n === 1 ? 'columna' : 'columnas'}</option>)}
+          </select>
+        </Field>
+      )}
+      {has('fit') && (
+        <Field label="Ajuste de las fotos">
+          <select value={slots.fit ?? 'cover'} onChange={(e) => setSlots({ ...slots, fit: e.currentTarget.value as 'cover' | 'contain' })}>
+            <option value="cover">Llenar el recuadro (puede recortar)</option>
+            <option value="contain">Mostrar la foto completa</option>
           </select>
         </Field>
       )}
@@ -217,6 +287,8 @@ export function Builder(props: { screenId: number }) {
   const [fullLoop, setFullLoop] = useState(false);
   const [version, setVersion] = useState(0);
   const [dialog, setDialog] = useState<'' | 'add' | 'versions' | 'settings'>('');
+  // On a phone the builder shows one pane at a time.
+  const [pane, setPane] = useState<'slides' | 'edit'>('slides');
   const [missing, setMissing] = useState(false);
   const catalog = useLoad(async () => ({
     services: await api<Service[]>('GET', '/api/services'),
@@ -280,6 +352,7 @@ export function Builder(props: { screenId: number }) {
       await load();
       setSelected(slide.id);
       setFullLoop(false);
+      setPane('edit');
     } catch (err) {
       showError(err);
     }
@@ -332,7 +405,12 @@ export function Builder(props: { screenId: number }) {
         </div>
       </header>
 
-      <div class="builder-grid">
+      <div class="builder-tabs" role="tablist">
+        <button role="tab" aria-selected={pane === 'slides'} class={pane === 'slides' ? 'active' : ''} onClick={() => setPane('slides')}>Diapositivas ({slides.length})</button>
+        <button role="tab" aria-selected={pane === 'edit'} class={pane === 'edit' ? 'active' : ''} onClick={() => setPane('edit')}>Vista previa y edición</button>
+      </div>
+
+      <div class={`builder-grid pane-${pane}`}>
         <section class="card slides-panel">
           <header class="card-head"><h2>Diapositivas</h2><button class="btn primary small" onClick={() => setDialog('add')}>+ Agregar</button></header>
           <ol class="slide-list">
@@ -340,7 +418,7 @@ export function Builder(props: { screenId: number }) {
               const meta = getTemplate(s.template);
               return (
                 <li key={s.id} class={`${s.id === selected && !fullLoop ? 'selected' : ''}${s.active ? '' : ' dim'}`}>
-                  <button class="slide-pick" onClick={() => { setSelected(s.id); setFullLoop(false); }}>
+                  <button class="slide-pick" onClick={() => { setSelected(s.id); setFullLoop(false); setPane('edit'); }}>
                     <span class="slide-pos">{i + 1}</span>
                     <span>
                       <strong>{meta?.label ?? s.template}</strong>
@@ -380,14 +458,19 @@ export function Builder(props: { screenId: number }) {
 
       {dialog === 'add' && (
         <Modal title="Agregar diapositiva" onClose={() => setDialog('')} wide>
-          <div class="template-grid">
-            {TEMPLATES.map((t) => (
-              <button class="template-card" onClick={() => void addSlide(t.id)}>
-                <strong>{t.label}</strong>
-                <span>{t.description}</span>
-              </button>
-            ))}
-          </div>
+          {TEMPLATE_GROUPS.map((group) => (
+            <section class="template-group">
+              <h3>{group}</h3>
+              <div class="template-grid">
+                {TEMPLATES.filter((t) => t.group === group).map((t) => (
+                  <button class="template-card" onClick={() => void addSlide(t.id)}>
+                    <strong>{t.label}</strong>
+                    <span>{t.description}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
         </Modal>
       )}
       {dialog === 'settings' && (

@@ -121,4 +121,11 @@ export const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   `,
+  // Offer prices. An offer is active while offer_cents is above 0, below the
+  // regular price and, if offer_ends_at is set, until that day (clinic time).
+  `
+  ALTER TABLE services ADD COLUMN offer_cents INTEGER NOT NULL DEFAULT 0 CHECK (offer_cents >= 0);
+  ALTER TABLE services ADD COLUMN offer_label TEXT NOT NULL DEFAULT '';
+  ALTER TABLE services ADD COLUMN offer_ends_at TEXT NOT NULL DEFAULT '';
+  `,
 ];

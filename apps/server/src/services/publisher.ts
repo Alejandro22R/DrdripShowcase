@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   clinicNow,
+  discountPercent,
   formatCents,
   formatDuration,
   formatPrice,
@@ -212,6 +213,8 @@ export interface ResolvedService {
   benefits: string[];
   duration: string;
   price: FormattedPrice;
+  /** Present only while the service has an active offer. `price` stays the regular one. */
+  offer: { text: string; percent: number; label: string; until: string } | null;
   badge: string;
   image: string;
   icon: string;
@@ -233,10 +236,26 @@ interface ServiceRow {
   is_featured: boolean;
   available: boolean;
   visible: boolean;
+  offer_cents: number;
+  offer_label: string;
+  offer_ends_at: string;
 }
 
-function resolveService(row: ServiceRow, icons: Map<number, string>): ResolvedService {
+export function hasActiveOffer(row: Pick<ServiceRow, 'price_cents' | 'price_mode' | 'offer_cents' | 'offer_ends_at'>, today: string): boolean {
+  return row.price_mode !== 'ask' && discountPercent(row.price_cents, row.offer_cents) > 0 && (!row.offer_ends_at || row.offer_ends_at >= today);
+}
+
+function resolveService(row: ServiceRow, icons: Map<number, string>, today: string): ResolvedService {
+  const percent = discountPercent(row.price_cents, row.offer_cents);
   return {
+    offer: hasActiveOffer(row, today)
+      ? {
+          text: formatCents(row.offer_cents),
+          percent,
+          label: row.offer_label || (percent > 0 ? `-${percent} %` : 'Oferta'),
+          until: row.offer_ends_at ? `Hasta el ${formatDate(row.offer_ends_at).replace(/ de \d{4}$/, '')}` : '',
+        }
+      : null,
     id: row.id,
     name: row.name,
     description: row.description,
@@ -294,6 +313,7 @@ export interface ResolvedSlide {
     services?: ResolvedService[];
     addons?: Catalog['addons'];
     promo?: { title: string; subtitle: string; image: string; validity: string };
+    promos?: { title: string; subtitle: string; image: string; validity: string }[];
     items?: string[];
   };
   /** True when the slide has nothing to show; the player swaps in the brand cover. */
@@ -310,7 +330,7 @@ function resolveSlide(slide: SnapshotSlide, index: number, screenTheme: string, 
   if (meta && meta.sources.length > 0) {
     if (source?.type === 'category' && meta.sources.includes('category')) {
       data.services = catalog.activeCategories.has(source.categoryId ?? -1)
-        ? catalog.services.filter((s) => s.category_id === source.categoryId).map((s) => resolveService(s, catalog.icons))
+        ? catalog.services.filter((s) => s.category_id === source.categoryId).map((s) => resolveService(s, catalog.icons, catalog.today))
         : [];
       empty = data.services.length === 0;
     } else if (source?.type === 'services' && meta.sources.includes('services')) {
@@ -318,7 +338,12 @@ function resolveSlide(slide: SnapshotSlide, index: number, screenTheme: string, 
       data.services = (source.serviceIds ?? [])
         .map((id) => byId.get(id))
         .filter((s): s is ServiceRow => s !== undefined)
-        .map((s) => resolveService(s, catalog.icons));
+        .map((s) => resolveService(s, catalog.icons, catalog.today));
+      empty = data.services.length === 0;
+    } else if (source?.type === 'offers' && meta.sources.includes('offers')) {
+      data.services = catalog.services
+        .filter((s) => hasActiveOffer(s, catalog.today) && (s.category_id === null || catalog.activeCategories.has(s.category_id)))
+        .map((s) => resolveService(s, catalog.icons, catalog.today));
       empty = data.services.length === 0;
     } else if (source?.type === 'promo' && meta.sources.includes('promo')) {
       const promo = catalog.promos.get(source.promoId ?? -1) as
@@ -341,6 +366,14 @@ function resolveSlide(slide: SnapshotSlide, index: number, screenTheme: string, 
   if (meta?.id === 'benefits') {
     data.items = slots.items && slots.items.length ? slots.items : benefits;
     empty = data.items.length === 0;
+  }
+  if (meta?.id === 'gallery') empty = !slots.images || slots.images.filter((i) => i && i.url).length === 0;
+  if (meta?.id === 'promos') {
+    data.promos = [...catalog.promos.values()]
+      .map((p) => p as { title: string; subtitle: string; image_path: string; starts_at: string; ends_at: string; active: boolean })
+      .filter((p) => p.active && (!p.starts_at || p.starts_at <= catalog.today) && (!p.ends_at || p.ends_at >= catalog.today))
+      .map((p) => ({ title: p.title, subtitle: p.subtitle, image: p.image_path, validity: p.ends_at ? `Válido hasta el ${formatDate(p.ends_at)}` : '' }));
+    empty = data.promos.length === 0;
   }
   if (meta?.id === 'team') empty = !slots.people || slots.people.length === 0;
   if (meta?.id === 'free') empty = !slots.title && !slots.body && !slots.image && !slots.video;

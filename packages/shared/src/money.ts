@@ -71,3 +71,12 @@ export function adjustCents(cents: number, basisPoints: number, roundToDollar = 
   if (roundToDollar) result = Math.floor((result + 50) / 100) * 100;
   return Math.min(result, MAX_PRICE_CENTS);
 }
+
+/**
+ * Whole-number discount between a regular and an offer price, rounded down
+ * so the screen never promises more than the real saving. 0 when there is none.
+ */
+export function discountPercent(regularCents: number, offerCents: number): number {
+  if (!isValidCents(regularCents) || !isValidCents(offerCents) || offerCents <= 0 || offerCents >= regularCents) return 0;
+  return Math.floor(((regularCents - offerCents) * 100) / regularCents);
+}
