@@ -2,7 +2,7 @@
 
 Cartelería digital local para **DrDrip — Infusion Services & More** (Vega Baja, Puerto Rico). Muestra el menú de servicios y precios en las pantallas de la clínica, funciona con o sin internet y se administra desde un panel en el navegador.
 
-Versión actual: **0.2.0**. El plan completo está en [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
+Versión actual: **0.2.1**. El plan completo está en [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
 
 | Componente | Dónde se abre |
 |---|---|
@@ -39,8 +39,8 @@ La primera vez se carga el catálogo del sitio web (35 servicios y 7 complemento
 | 0. Preparación | Hecha | Monorepo, TypeScript, paleta y tipografías del rebrand empaquetadas |
 | 1. Núcleo de datos | Hecha | SQLite (WAL), precios en centavos enteros, modos `fixed`/`from`/`ask`, catálogo inicial |
 | 2. API + WebSocket | Hecha | CRUD con PATCH parcial, subida de fotos, avisos en vivo |
-| 3. Motor de plantillas | Hecha | Las 10 plantillas del plan, una por archivo |
-| 4. Panel de administración | Hecha | Servicios, complementos, categorías, promociones, marca, sistema |
+| 3. Motor de plantillas | Hecha | Las 10 plantillas del plan más galería de imágenes, productos con foto en columnas, ofertas y tablero de promociones |
+| 4. Panel de administración | Hecha | Servicios (con precio de oferta), complementos, categorías, promociones, marca, sistema. Menú lateral por grupos y barra inferior en teléfono |
 | 5. Constructor de pantallas | Hecha | Borrador, vista previa en vivo, Publicar, duplicar, versiones, horarios |
 | 6. Animaciones | Hecha, falta medir en TVs | Fundido, cortina con la gota, bienvenida y calidad automática. No se ha medido en un televisor real |
 | 7. Robustez offline | Parcial | Caché de la última versión, reconexión, horarios y respaldos nocturnos. Si el servidor está apagado y el TV se reinicia, la página no carga |
@@ -57,6 +57,7 @@ La primera vez se carga el catálogo del sitio web (35 servicios y 7 complemento
 - **Los datos viven en `data`, dentro de la carpeta del programa.** Al actualizar se reemplaza todo menos `data` y `config.ini`. Otra ubicación se configura con `data_dir`.
 - **El precio en oro usa un tono legible por tema.** El oro oficial `#C6A66B` se mantiene en filetes y acentos; sobre salvia y marfil el texto del precio usa un tono más claro o más oscuro del mismo oro para que se lea a distancia.
 - **Base de datos con `node:sqlite`**, incluida en Node. Así el futuro `.exe` no necesita módulos nativos.
+- **Una oferta no reemplaza el precio normal.** Se guarda aparte (`offer_cents`), debe ser menor que el precio, puede tener fecha de fin y se muestra con el precio normal tachado. El descuento se redondea hacia abajo.
 - **Los precios cambian en vivo; la composición de una pantalla espera a *Publicar*.** Un cambio de precio llega a los televisores en uno o dos segundos sin publicar nada.
 - **`sharp` es opcional en tiempo de ejecución.** Si no está disponible, la foto se guarda sin reducir.
 

@@ -115,6 +115,41 @@
     return el;
   };
 
+  /**
+   * Price of a service. With an active offer the regular price is shown
+   * struck through next to the offer price.
+   */
+  V.servicePrice = function (service, className) {
+    if (!service.offer) return V.price(service.price, className);
+    var el = V.h('span', { class: 'price has-offer price-' + service.price.mode + ' ' + (className || '') });
+    if (service.price.prefix) el.appendChild(V.h('span', { class: 'price-prefix' }, service.price.prefix));
+    el.appendChild(V.h('span', { class: 'price-old' }, service.price.text));
+    el.appendChild(V.h('span', { class: 'price-amount' }, service.offer.text));
+    return el;
+  };
+
+  /** Round seal with the discount ("-20 %") or the custom offer label. */
+  V.offerSeal = function (service, className) {
+    if (!service.offer) return null;
+    return V.h('span', { class: 'seal ' + (className || '') }, service.offer.label);
+  };
+
+  /** Picture in a frame. `fit` is "cover" (fills, may crop) or "contain" (whole picture). */
+  V.photo = function (url, fit, className) {
+    return V.h('div', { class: 'photo ' + (fit === 'contain' ? 'photo-contain ' : '') + (className || '') }, V.h('img', { src: url, alt: '' }));
+  };
+
+  /** Page `cycle` of a list, with `perPage` items each. */
+  V.page = function (list, perPage, cycle) {
+    var pages = Math.ceil(list.length / perPage) || 1;
+    var index = cycle % pages;
+    return { items: list.slice(index * perPage, index * perPage + perPage), index: index, pages: pages };
+  };
+
+  V.pager = function (page) {
+    return page.pages > 1 ? V.h('div', { class: 'pager' }, (page.index + 1) + ' / ' + page.pages) : null;
+  };
+
   /** Standard slide heading: title, spaced subtitle and gold rule. */
   V.heading = function (slots, fallbackTitle) {
     var title = slots.title || fallbackTitle;

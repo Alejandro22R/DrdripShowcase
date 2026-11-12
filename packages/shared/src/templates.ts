@@ -14,7 +14,8 @@ export const TRANSITION_LABELS: Record<Transition, string> = {
   none: 'Sin transición',
 };
 
-export type SourceType = 'category' | 'services' | 'promo';
+/** `offers` means every visible service that has an active offer price. */
+export type SourceType = 'category' | 'services' | 'offers' | 'promo';
 
 export interface SlideSource {
   type: SourceType;
@@ -42,7 +43,26 @@ export interface SlideSlots {
   video?: string;
   items?: string[];
   people?: Person[];
+  /** Uploaded pictures for the gallery template. */
+  images?: GalleryImage[];
+  /** Gallery arrangement. */
+  layout?: GalleryLayout;
+  /** How pictures fill their frame: cropped to fill it, or shown whole. */
+  fit?: 'cover' | 'contain';
 }
+
+export interface GalleryImage {
+  url: string;
+  caption?: string;
+}
+
+export type GalleryLayout = 'columns' | 'mosaic' | 'full';
+export const GALLERY_LAYOUTS: readonly GalleryLayout[] = ['columns', 'mosaic', 'full'];
+export const GALLERY_LAYOUT_LABELS: Record<GalleryLayout, string> = {
+  columns: 'En columnas',
+  mosaic: 'Mosaico (una grande y varias pequeñas)',
+  full: 'Una a la vez, a pantalla completa',
+};
 
 export interface SlideSchedule {
   /** 0 = Sunday … 6 = Saturday. Empty or missing means every day. */
@@ -54,7 +74,7 @@ export interface SlideSchedule {
   clinic?: 'any' | 'open' | 'closed';
 }
 
-export type FieldKey = 'title' | 'subtitle' | 'body' | 'columns' | 'grid' | 'image' | 'video' | 'items' | 'people';
+export type FieldKey = 'title' | 'subtitle' | 'body' | 'columns' | 'grid' | 'image' | 'video' | 'items' | 'people' | 'images' | 'layout' | 'fit';
 
 export interface TemplateMeta {
   id: string;
@@ -63,6 +83,10 @@ export interface TemplateMeta {
   sources: SourceType[];
   fields: FieldKey[];
   defaults: SlideSlots;
+  /** Choices for the `columns` field. Defaults to 1 or 2. */
+  columnOptions?: number[];
+  /** Group shown in the "add slide" dialog. */
+  group: 'Marca' | 'Menú y precios' | 'Fotos' | 'Ofertas y promociones' | 'Otros';
 }
 
 export const GRID_OPTIONS = ['2x2', '3x2', '3x3', '4x2', '4x3'] as const;
@@ -70,6 +94,7 @@ export const GRID_OPTIONS = ['2x2', '3x2', '3x3', '4x2', '4x3'] as const;
 export const TEMPLATES: readonly TemplateMeta[] = [
   {
     id: 'brand-cover',
+    group: 'Marca',
     label: 'Portada de marca',
     description: 'Logo, descriptor, filete dorado, silueta de la gota y frases de la marca.',
     sources: [],
@@ -78,22 +103,25 @@ export const TEMPLATES: readonly TemplateMeta[] = [
   },
   {
     id: 'drip-menu',
+    group: 'Menú y precios',
     label: 'Menú de drips',
     description: 'Lista elegante a 1 o 2 columnas con nombre, duración y precio en oro.',
-    sources: ['category', 'services'],
+    sources: ['category', 'services', 'offers'],
     fields: ['title', 'subtitle', 'columns'],
     defaults: { title: 'Menú de Drips', columns: 2 },
   },
   {
     id: 'service-cards',
+    group: 'Menú y precios',
     label: 'Tarjetas de servicio',
     description: 'Cuadrícula de 2x2 a 4x3 con ícono o foto, nombre, descripción corta y precio.',
-    sources: ['category', 'services'],
+    sources: ['category', 'services', 'offers'],
     fields: ['title', 'grid'],
     defaults: { grid: '3x2' },
   },
   {
     id: 'featured-service',
+    group: 'Menú y precios',
     label: 'Servicio destacado',
     description: 'Un servicio a pantalla completa con beneficios y precio.',
     sources: ['services'],
@@ -102,6 +130,7 @@ export const TEMPLATES: readonly TemplateMeta[] = [
   },
   {
     id: 'build-your-drip',
+    group: 'Menú y precios',
     label: 'Arma tu drip',
     description: 'Drips base más los complementos activos con sus precios.',
     sources: ['category', 'services'],
@@ -110,22 +139,64 @@ export const TEMPLATES: readonly TemplateMeta[] = [
   },
   {
     id: 'compact-list',
+    group: 'Menú y precios',
     label: 'Inyectables y control de peso',
     description: 'Lista compacta con precios "Desde" y "Consultar".',
-    sources: ['category', 'services'],
+    sources: ['category', 'services', 'offers'],
     fields: ['title', 'subtitle', 'columns'],
     defaults: { title: 'Inyectables', columns: 1 },
   },
   {
+    id: 'product-columns',
+    group: 'Fotos',
+    label: 'Productos con foto en columnas',
+    description: 'Columnas altas con la foto de cada servicio, su nombre y su precio. Ideal para productos con imagen.',
+    sources: ['category', 'services', 'offers'],
+    fields: ['title', 'subtitle', 'columns', 'fit'],
+    defaults: { columns: 4, fit: 'cover' },
+    columnOptions: [2, 3, 4, 5],
+  },
+  {
+    id: 'gallery',
+    group: 'Fotos',
+    label: 'Galería de imágenes',
+    description: 'Tus propias imágenes: en columnas, en mosaico o una a la vez a pantalla completa.',
+    sources: [],
+    fields: ['title', 'images', 'layout', 'columns', 'fit'],
+    defaults: { images: [], layout: 'columns', columns: 3, fit: 'cover' },
+    columnOptions: [2, 3, 4],
+  },
+  {
+    id: 'offers',
+    group: 'Ofertas y promociones',
+    label: 'Ofertas',
+    description: 'Servicios en oferta con el precio anterior tachado, el precio nuevo y el porcentaje de descuento.',
+    sources: ['offers', 'services', 'category'],
+    fields: ['title', 'subtitle'],
+    defaults: { title: 'Ofertas', subtitle: 'Por tiempo limitado', source: { type: 'offers' } },
+  },
+  {
+    id: 'promos',
+    group: 'Ofertas y promociones',
+    label: 'Tablero de promociones',
+    description: 'Todas las promociones vigentes juntas, con su imagen, texto y fecha de vigencia.',
+    sources: [],
+    fields: ['title', 'columns'],
+    defaults: { title: 'Promociones', columns: 2 },
+    columnOptions: [1, 2, 3],
+  },
+  {
     id: 'promo',
+    group: 'Ofertas y promociones',
     label: 'Promoción / Gift Card',
-    description: 'Banner con imagen, texto y fechas de vigencia.',
+    description: 'Una sola promoción a pantalla completa, con imagen, texto y fechas de vigencia.',
     sources: ['promo'],
     fields: [],
     defaults: {},
   },
   {
     id: 'benefits',
+    group: 'Marca',
     label: 'Beneficios',
     description: 'Los beneficios de la infusión con íconos.',
     sources: [],
@@ -134,6 +205,7 @@ export const TEMPLATES: readonly TemplateMeta[] = [
   },
   {
     id: 'team',
+    group: 'Otros',
     label: 'Equipo / testimonios',
     description: 'Fotos y nombres del equipo o testimonios. Solo con permiso del cliente.',
     sources: [],
@@ -142,6 +214,7 @@ export const TEMPLATES: readonly TemplateMeta[] = [
   },
   {
     id: 'free',
+    group: 'Otros',
     label: 'Texto libre / imagen / video',
     description: 'Para cualquier mensaje: texto, una imagen o un video corto.',
     sources: [],

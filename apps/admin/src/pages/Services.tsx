@@ -1,4 +1,4 @@
-import { centsToInput, formatCents, formatPrice, parsePriceInput, type PriceMode } from '@drdrip/shared';
+import { centsToInput, discountPercent, formatCents, formatPrice, parsePriceInput, type PriceMode } from '@drdrip/shared';
 import { useMemo, useRef, useState } from 'preact/hooks';
 import { api, download, type Category, type PriceChange, type Service } from '../api';
 import { Field, ImagePicker, LinesInput, Loading, Modal, Page, Toggle, confirm, formatDate, run, showError, toast, useLoad, useUnsavedWarning } from '../ui';
@@ -6,11 +6,16 @@ import { Field, ImagePicker, LinesInput, Loading, Modal, Page, Toggle, confirm, 
 const MODE_LABELS: Record<PriceMode, string> = { fixed: 'Precio fijo', from: 'Desde', ask: 'Consultar' };
 const BADGES = ['', 'Nuevo', 'Popular'];
 
-type Draft = Omit<Service, 'id' | 'updated_at' | 'sort_order'> & { id?: number; price_text: string };
+type Draft = Omit<Service, 'id' | 'updated_at' | 'sort_order'> & { id?: number; price_text: string; offer_text: string };
+
+const toDraft = (s: Service): Draft => ({ ...s, price_text: centsToInput(s.price_cents), offer_text: s.offer_cents ? centsToInput(s.offer_cents) : '' });
+const today = () => new Date(Date.now() - 4 * 3600_000).toISOString().slice(0, 10); // clinic date (UTC-4)
+const offerActive = (s: Service) => s.price_mode !== 'ask' && discountPercent(s.price_cents, s.offer_cents) > 0 && (!s.offer_ends_at || s.offer_ends_at >= today());
 
 function emptyDraft(categoryId: number | null): Draft {
   return {
     name: '', name_en: '', description: '', benefits: [], category_id: categoryId, price_cents: 0, price_text: '',
+    offer_cents: 0, offer_text: '', offer_label: '', offer_ends_at: '',
     price_mode: 'fixed', duration_min: 0, image_path: '', badge: '', is_featured: false, available: true, visible: true,
   };
 }
@@ -106,6 +111,13 @@ function ServiceForm(props: { draft: Draft; categories: Category[]; services: Se
       if (parsed === null) found.price_text = 'Escribe un precio válido, por ejemplo 159 o 159.50.';
       else cents = parsed;
     }
+    let offerCents = 0;
+    if (draft.offer_text.trim() && draft.price_mode !== 'ask') {
+      const parsed = parsePriceInput(draft.offer_text);
+      if (parsed === null) found.offer_text = 'Escribe un precio de oferta válido, o déjalo vacío.';
+      else if (parsed > 0 && parsed >= cents) found.offer_text = 'La oferta debe ser menor que el precio normal.';
+      else offerCents = parsed;
+    }
     if (!Number.isInteger(draft.duration_min) || draft.duration_min < 0 || draft.duration_min > 1440) found.duration_min = 'Entre 0 y 1440 minutos.';
     setErrors(found);
     if (Object.keys(found).length) return toast('Revisa los campos resaltados', 'warning');
@@ -115,8 +127,8 @@ function ServiceForm(props: { draft: Draft; categories: Category[]; services: Se
     const before = props.services.find((s) => s.id === draft.id);
     if (!(await confirmPrice(name, before ? before.price_cents : null, cents, draft.price_mode))) return;
 
-    const { id, price_text: _text, ...rest } = draft;
-    const body = { ...rest, name, price_cents: draft.price_mode === 'ask' ? (before?.price_cents ?? 0) : cents };
+    const { id, price_text: _text, offer_text: _offer, ...rest } = draft;
+    const body = { ...rest, name, price_cents: draft.price_mode === 'ask' ? (before?.price_cents ?? 0) : cents, offer_cents: offerCents };
     const ok = await run(() => (id ? api('PATCH', `/api/services/${id}`, body) : api('POST', '/api/services', body)), 'Servicio guardado');
     if (ok) props.onSaved();
   };
@@ -152,6 +164,20 @@ function ServiceForm(props: { draft: Draft; categories: Category[]; services: Se
         <Field label="Precio (USD)" error={errors.price_text} hint={draft.price_mode === 'ask' ? 'En modo "Consultar" no se muestra precio.' : undefined}>
           <input value={draft.price_text} inputMode="decimal" placeholder="159" disabled={draft.price_mode === 'ask'} onInput={(e) => set('price_text', e.currentTarget.value)} />
         </Field>
+        <fieldset class="field wide offer-box">
+          <legend class="field-label">Oferta (opcional)</legend>
+          <div class="form-grid three">
+            <Field label="Precio de oferta" error={errors.offer_text} hint="Vacío: sin oferta. El precio normal se muestra tachado.">
+              <input value={draft.offer_text} inputMode="decimal" placeholder="129" disabled={draft.price_mode === 'ask'} onInput={(e) => set('offer_text', e.currentTarget.value)} />
+            </Field>
+            <Field label="Texto del sello" hint="Vacío: muestra el descuento, por ejemplo -20 %.">
+              <input value={draft.offer_label} maxLength={14} placeholder="2x1, Oferta…" onInput={(e) => set('offer_label', e.currentTarget.value)} />
+            </Field>
+            <Field label="Válida hasta" hint="Vacío: sin fecha de fin.">
+              <input type="date" value={draft.offer_ends_at} onInput={(e) => set('offer_ends_at', e.currentTarget.value)} />
+            </Field>
+          </div>
+        </fieldset>
         <Field label="Descripción corta" wide>
           <textarea rows={2} value={draft.description} onInput={(e) => set('description', e.currentTarget.value)} />
         </Field>
@@ -315,16 +341,18 @@ export function Services() {
         <span class="muted">{rows.length} servicios</span>
       </div>
       <div class="card table-wrap">
-        <table class="table">
+        <table class="table services-table">
           <thead>
             <tr><th>Servicio</th><th>Categoría</th><th>Modo</th><th>Precio</th><th>Duración</th><th>Visible</th><th>Disponible</th><th /></tr>
           </thead>
           <tbody>
             {rows.map((s) => (
               <tr key={s.id} class={s.visible ? '' : 'dim'}>
-                <td data-label="Servicio">
-                  <button class="link" onClick={() => setEditing({ ...s, price_text: centsToInput(s.price_cents) })}>{s.name}</button>
+                <td data-label="Servicio" class="cell-name">
+                  {s.image_path ? <img class="row-thumb" src={s.image_path} alt="" /> : <span class="row-thumb empty" />}
+                  <button class="link" onClick={() => setEditing(toDraft(s))}>{s.name}</button>
                   {s.badge && <span class="chip gold">{s.badge}</span>}
+                  {offerActive(s) && <span class="chip offer">Oferta {formatCents(s.offer_cents)}</span>}
                 </td>
                 <td data-label="Categoría">{catName(s.category_id)}</td>
                 <td data-label="Modo">
@@ -337,7 +365,7 @@ export function Services() {
                 <td data-label="Visible"><Toggle checked={s.visible} onChange={(v) => void patch(s, { visible: v })} title="Mostrar en las pantallas" /></td>
                 <td data-label="Disponible"><Toggle checked={s.available} onChange={(v) => void patch(s, { available: v })} title="Marcar como disponible" /></td>
                 <td class="row-actions">
-                  <button class="icon-btn" title="Editar" onClick={() => setEditing({ ...s, price_text: centsToInput(s.price_cents) })}>✎</button>
+                  <button class="icon-btn" title="Editar" onClick={() => setEditing(toDraft(s))}>✎</button>
                   <button class="icon-btn danger" title="Eliminar" onClick={() => void remove(s)}>🗑</button>
                 </td>
               </tr>

@@ -7,7 +7,7 @@ beforeAll(async () => {
   await import('../engine/brand.js');
   await import('../engine/dom.js');
   await import('../engine/core.js');
-  for (const name of ['brand-cover', 'drip-menu', 'service-cards', 'featured-service', 'build-your-drip', 'compact-list', 'promo', 'benefits', 'team', 'free']) {
+  for (const name of ['brand-cover', 'drip-menu', 'service-cards', 'featured-service', 'build-your-drip', 'compact-list', 'product-columns', 'gallery', 'offers', 'promos', 'promo', 'benefits', 'team', 'free']) {
     await import(`../templates/${name}.js`);
   }
   V = window.Vitrina;
@@ -19,7 +19,7 @@ const at = (iso) => new Date(iso);
 
 const service = (over = {}) => ({
   id: 1, name: 'Myers Drip', description: '', benefits: [], duration: '1 h 30 min',
-  price: { mode: 'fixed', prefix: '', text: '$159' }, badge: '', image: '', icon: 'drop', available: true, featured: false, ...over,
+  price: { mode: 'fixed', prefix: '', text: '$159' }, offer: null, badge: '', image: '', icon: 'drop', available: true, featured: false, ...over,
 });
 const slide = (template, over = {}) => ({
   key: 's0', template, theme: 'dark', duration_s: 10, transition: 'fade', schedule: {}, slots: {}, data: {}, empty: false, ...over,
@@ -70,7 +70,7 @@ describe('schedule', () => {
 describe('template engine', () => {
   it('registers every template of the catalog', () => {
     expect(Object.keys(V.templates).sort()).toEqual(
-      ['benefits', 'brand-cover', 'build-your-drip', 'compact-list', 'drip-menu', 'featured-service', 'free', 'promo', 'service-cards', 'team'],
+      ['benefits', 'brand-cover', 'build-your-drip', 'compact-list', 'drip-menu', 'featured-service', 'free', 'gallery', 'offers', 'product-columns', 'promo', 'promos', 'service-cards', 'team'],
     );
   });
 
@@ -147,6 +147,71 @@ describe('template engine', () => {
 
     const free = V.renderSlide(slide('free', { slots: { title: 'Aviso', body: 'Línea uno\nLínea dos' } }), ctx()).el;
     expect(free.querySelectorAll('.free-body')).toHaveLength(2);
+  });
+
+  const OFFER = { text: '$129', percent: 18, label: '-18 %', until: 'Hasta el 30 de noviembre' };
+
+  it('shows an offer with the regular price struck through', () => {
+    const services = [service({ offer: OFFER }), service({ id: 2, name: 'Beauty Drip' })];
+    const rows = V.renderSlide(slide('drip-menu', { data: { services } }), ctx()).el.querySelectorAll('.menu-row');
+    expect(rows[0].querySelector('.price-old').textContent).toBe('$159');
+    expect(rows[0].querySelector('.price-amount').textContent).toBe('$129');
+    expect(rows[0].querySelector('.badge-offer').textContent).toBe('-18 %');
+    expect(rows[1].querySelector('.price-old')).toBeNull();
+  });
+
+  it('renders the offers slide with seal, prices and end date', () => {
+    const services = Array.from({ length: 4 }, (_, i) => service({ id: i, name: `Oferta ${i + 1}`, offer: OFFER }));
+    const s = slide('offers', { slots: { title: 'Ofertas' }, data: { services } });
+    expect(V.slidePages(s, ctx())).toBe(2);
+    const el = V.renderSlide(s, ctx()).el;
+    expect(el.querySelectorAll('.offer')).toHaveLength(3);
+    expect(el.querySelector('.offer-seal').textContent).toBe('-18 %');
+    expect(el.querySelector('.offer-until').textContent).toBe('Hasta el 30 de noviembre');
+    expect(V.renderSlide(s, ctx({ cycle: 1 })).el.querySelectorAll('.offer')).toHaveLength(1);
+  });
+
+  it('renders products in columns with photo or icon, and pages the rest', () => {
+    const services = Array.from({ length: 6 }, (_, i) => service({ id: i, name: `Producto ${i + 1}`, image: i === 0 ? '/media/p.webp' : '' }));
+    const s = slide('product-columns', { slots: { columns: 4, fit: 'contain' }, data: { services } });
+    const el = V.renderSlide(s, ctx()).el;
+    expect(el.querySelectorAll('.product')).toHaveLength(4);
+    expect(el.querySelector('.products-grid').style.gridTemplateColumns).toBe('repeat(4, 1fr)');
+    expect(el.querySelector('.product .photo-contain img').getAttribute('src')).toBe('/media/p.webp');
+    expect(el.querySelectorAll('.product-icon')).toHaveLength(3);
+    expect(V.slidePages(s, ctx())).toBe(2);
+    expect(V.renderSlide(s, ctx({ cycle: 1 })).el.querySelectorAll('.product')).toHaveLength(2);
+    // Vertical screens stack two rows of at most three columns.
+    expect(V.renderSlide(s, ctx({ screen: { orientation: 'portrait' } })).el.querySelectorAll('.product')).toHaveLength(6);
+  });
+
+  it('renders the gallery in columns, as a mosaic and one at a time', () => {
+    const images = Array.from({ length: 5 }, (_, i) => ({ url: `/media/${i}.webp`, caption: i === 0 ? 'Sala de infusión' : '' }));
+    const columns = V.renderSlide(slide('gallery', { slots: { images, layout: 'columns', columns: 3 } }), ctx()).el;
+    expect(columns.querySelectorAll('.gallery-item')).toHaveLength(3);
+    expect(columns.querySelector('.gallery-caption').textContent).toBe('Sala de infusión');
+    expect(columns.querySelector('.pager').textContent).toBe('1 / 2');
+
+    const mosaic = V.renderSlide(slide('gallery', { slots: { images, layout: 'mosaic' } }), ctx()).el;
+    expect(mosaic.querySelectorAll('.gallery-lead')).toHaveLength(1);
+    expect(mosaic.querySelectorAll('.gallery-side .gallery-item')).toHaveLength(4);
+
+    const full = V.renderSlide(slide('gallery', { slots: { images, layout: 'full' } }), ctx()).el;
+    expect(full.querySelectorAll('.gallery-frame')).toHaveLength(5);
+    expect(full.querySelectorAll('.gallery-frame.is-on')).toHaveLength(1);
+  });
+
+  it('renders the promotions board', () => {
+    const promos = [
+      { title: 'Gift Cards', subtitle: '¡Regala salud!', image: '', validity: '' },
+      { title: '2x1', subtitle: '', image: '/media/x.webp', validity: 'Válido hasta el 31 de enero de 2027' },
+      { title: 'Tercera', subtitle: '', image: '', validity: '' },
+    ];
+    const s = slide('promos', { slots: { title: 'Promociones', columns: 2 }, data: { promos } });
+    const el = V.renderSlide(s, ctx()).el;
+    expect([...el.querySelectorAll('.promo-card-title')].map((n) => n.textContent)).toEqual(['Gift Cards', '2x1']);
+    expect(el.querySelector('.promo-card.has-image img').getAttribute('src')).toBe('/media/x.webp');
+    expect(V.slidePages(s, ctx())).toBe(2);
   });
 
   it('falls back to the brand cover for empty, unknown or broken slides', () => {

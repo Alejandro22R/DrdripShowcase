@@ -10,6 +10,13 @@ interface ServiceRow {
   price_cents: number;
   price_mode: PriceMode;
   image_path: string;
+  offer_cents: number;
+}
+
+/** Thrown inside the transaction, so an invalid offer is never stored. */
+function assertOfferBelowPrice(row: ServiceRow): void {
+  if (row.offer_cents > 0 && row.price_mode !== 'ask' && row.offer_cents >= row.price_cents)
+    throw new HttpError(400, 'El precio de oferta debe ser menor que el precio normal.');
 }
 
 const YMD = /^(\d{4}-\d{2}-\d{2})?$/;
@@ -21,6 +28,10 @@ function validateService(body: Record<string, unknown>): void {
     throw new HttpError(400, 'Modo de precio inválido. Usa fixed, from o ask.');
   if (body.duration_min !== undefined && !(Number.isInteger(body.duration_min) && (body.duration_min as number) >= 0 && (body.duration_min as number) <= 1440))
     throw new HttpError(400, 'La duración debe estar entre 0 y 1440 minutos.');
+  if (body.offer_cents !== undefined && !isValidCents(body.offer_cents))
+    throw new HttpError(400, 'El precio de oferta debe ser un número entero de centavos, sin negativos.');
+  if (body.offer_ends_at !== undefined && (typeof body.offer_ends_at !== 'string' || !YMD.test(body.offer_ends_at)))
+    throw new HttpError(400, 'La fecha de fin de la oferta debe tener el formato AAAA-MM-DD.');
   if (body.benefits !== undefined && !(Array.isArray(body.benefits) && body.benefits.every((b) => typeof b === 'string')))
     throw new HttpError(400, 'Los beneficios deben ser una lista de textos.');
 }
@@ -83,7 +94,11 @@ export function catalogRoutes(app: FastifyInstance, ctx: Ctx): void {
   app.post('/api/services', (req, reply) => {
     const body = asObject(req.body);
     validateService(body);
-    const row = insertRow(db, SPECS.services, body);
+    const row = db.tx(() => {
+      const created = insertRow<ServiceRow>(db, SPECS.services, body);
+      assertOfferBelowPrice(created);
+      return created;
+    });
     changed();
     return reply.code(201).send(row);
   });
@@ -95,6 +110,7 @@ export function catalogRoutes(app: FastifyInstance, ctx: Ctx): void {
     const row = db.tx(() => {
       const before = getRow<ServiceRow>(db, SPECS.services, id);
       const after = patchRow<ServiceRow>(db, SPECS.services, id, body, { updated_at: new Date().toISOString().slice(0, 19).replace('T', ' ') });
+      assertOfferBelowPrice(after);
       if (before.price_cents !== after.price_cents || before.price_mode !== after.price_mode) {
         db.run(
           'INSERT INTO price_history (service_id, old_cents, new_cents, old_mode, new_mode) VALUES (?, ?, ?, ?, ?)',

@@ -1,6 +1,6 @@
 {
   "name": "@drdrip/player",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Dependency-free signage player (plain HTML, CSS and JS)"
 }
