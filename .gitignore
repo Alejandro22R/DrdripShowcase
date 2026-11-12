@@ -1,0 +1,8 @@
+node_modules/
+dist/
+apps/admin/dist/
+data/
+*.log
+.DS_Store
+config.ini
+release/

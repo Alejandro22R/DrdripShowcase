@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>DrDrip Vitrina</title>
+  <link rel="icon" href="/player/img/symbol.svg">
+  <link rel="stylesheet" href="/player/css/player.css">
+</head>
+<body class="select-page">
+  <main class="select">
+    <img class="select-symbol" src="/player/img/symbol-light.svg" alt="">
+    <h1 class="select-name">DrDrip</h1>
+    <p class="select-descriptor">Medical Aesthetics and Wellness</p>
+    <p class="select-hint" id="hint">Elige la pantalla que mostrará este televisor</p>
+    <div class="select-list" id="list"></div>
+    <p class="select-device" id="device"></p>
+  </main>
+  <script src="/player/engine/dom.js"></script>
+  <script src="/player/engine/main.js"></script>
+  <script>
+  // Selection page for the TV remote. A TV that was already assigned in the
+  // panel goes straight to its screen; otherwise the last one used reopens by
+  // itself after a short countdown.
+  (function () {
+    'use strict';
+    var V = window.Vitrina, h = V.h;
+    var list = document.getElementById('list');
+    var hint = document.getElementById('hint');
+    var deviceId = V.deviceId();
+    var last = null;
+    try { last = parseInt(localStorage.getItem('vitrina.last') || '', 10) || null; } catch (err) { /* no storage */ }
+    var countdown = null;
+
+    function open(id) { window.location.href = '/' + id; }
+
+    function cancel() {
+      if (!countdown) return;
+      clearInterval(countdown);
+      countdown = null;
+      hint.textContent = 'Elige la pantalla que mostrará este televisor';
+    }
+
+    function show(screens) {
+      list.textContent = '';
+      if (!screens.length) { hint.textContent = 'Todavía no hay pantallas. Créalas en el panel de administración.'; return; }
+      screens.forEach(function (s) {
+        var button = h('button', { class: 'select-item', type: 'button' }, h('span', { class: 'select-num' }, String(s.id)), s.name);
+        button.onclick = function () { open(s.id); };
+        list.appendChild(button);
+      });
+      var buttons = list.querySelectorAll('button');
+      var remembered = screens.filter(function (s) { return s.id === last; })[0];
+      (remembered ? buttons[screens.indexOf(remembered)] : buttons[0]).focus();
+      if (remembered) {
+        var left = 8;
+        var tick = function () {
+          hint.textContent = 'Abriendo "' + remembered.name + '" en ' + left + ' s. Pulsa una tecla para elegir otra.';
+          if (left-- <= 0) { clearInterval(countdown); open(remembered.id); }
+        };
+        tick();
+        countdown = setInterval(tick, 1000);
+      }
+    }
+
+    document.addEventListener('keydown', function (ev) {
+      var buttons = Array.prototype.slice.call(list.querySelectorAll('button'));
+      var index = buttons.indexOf(document.activeElement);
+      var move = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[ev.key];
+      if (ev.key !== 'Enter') cancel();
+      if (move && buttons.length) {
+        buttons[(index + move + buttons.length) % buttons.length].focus();
+        ev.preventDefault();
+      }
+    });
+    document.addEventListener('mousemove', cancel);
+
+    function loadScreens() {
+      fetch('/api/public/screens').then(function (r) { return r.json(); }).then(show).catch(function () {
+        hint.textContent = 'Conectando con el servidor…';
+        setTimeout(loadScreens, 4000);
+      });
+    }
+
+    if (deviceId) {
+      document.getElementById('device').textContent = 'Identificador de este televisor: ' + deviceId.slice(3, 9).toUpperCase();
+      fetch('/api/devices/hello', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId: deviceId }) })
+        .then(function (r) { return r.json(); })
+        .then(function (res) { if (res.screen_id) open(res.screen_id); else loadScreens(); })
+        .catch(loadScreens);
+    } else loadScreens();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<!-- WinSW service definition. %BASE% is the folder that contains this file. -->
+<service>
+  <id>DrDripVitrina</id>
+  <name>DrDrip Vitrina</name>
+  <description>Cartelería digital de DrDrip: muestra el menú de servicios en las pantallas de la clínica.</description>
+  <executable>%BASE%\DrDripVitrina.exe</executable>
+  <arguments>--servicio</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+  <startmode>Automatic</startmode>
+  <!-- If the program stops because of an error, Windows starts it again. -->
+  <onfailure action="restart" delay="5 sec"/>
+  <onfailure action="restart" delay="15 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>15 sec</stoptimeout>
+  <!-- The program writes its own rotating log to data\logs\vitrina.log. -->
+  <log mode="none"/>
+</service>
