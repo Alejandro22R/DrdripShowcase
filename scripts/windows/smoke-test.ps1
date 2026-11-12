@@ -53,7 +53,7 @@ Check 'service brought it back by itself' { WaitHealth 90 }
 
 Write-Host "Restart from the panel"
 $before = (Get-Process DrDripVitrina | Select-Object -First 1).Id
-Invoke-RestMethod "$base/api/system/restart" -Method Post -Headers $auth | Out-Null
+Check 'restart request is accepted' { Invoke-RestMethod "$base/api/system/restart" -Method Post -Headers $auth -ContentType 'application/json' -Body '{}' | Out-Null; $true }
 Start-Sleep -Seconds 3
 Check 'server is back after restart' { WaitHealth 60 }
 Check 'it is a new process' { (Get-Process DrDripVitrina | Select-Object -First 1).Id -ne $before }
