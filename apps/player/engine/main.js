@@ -53,7 +53,7 @@
       if (ev.origin !== root.location.origin || msg.type !== 'vitrina-preview') return;
       player.fixedKey = msg.slideKey || null;
       player.payload = player.payload ? Object.assign({}, player.payload, { etag: '' }) : null;
-      player.load(function () { player.advance(true); });
+      player.load(); // accepting the new payload re-renders the slide
     });
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -136,6 +136,7 @@
       if (!self.opts.quality && !self.preview) self.measure();
     });
 
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self.refit(); });
     this.connect();
     // Safety net: catches a missed notice, a date change or a promo that just expired.
     setInterval(function () { self.load(); }, 60000);
@@ -244,6 +245,12 @@
     this.chrome();
     // In the builder preview, show the edit right away instead of waiting a turn.
     if (this.preview && this.current) this.advance(true);
+    else if (this.current) this.refit();
+  };
+
+  /** Fits the visible slide again after fonts or images change its size. */
+  Player.prototype.refit = function () {
+    if (this.current && this.current.el.parentNode) V.fit(this.current.el);
   };
 
   Player.prototype.note = function (text) {
@@ -337,13 +344,19 @@
   /** Shows the next slide. `refresh` re-renders the current one (builder preview). */
   Player.prototype.advance = function (refresh) {
     var self = this;
-    if (this.busy) return;
+    if (this.busy) {
+      // A curtain is mid-way: a preview refresh waits for it instead of being lost.
+      if (refresh) setTimeout(function () { self.advance(true); }, 1200);
+      return;
+    }
     clearTimeout(this.timer);
 
     var picked = this.pick();
     var slide = picked.slide;
-    if (refresh && this.current) {
-      var same = (this.payload ? this.payload.slides : []).filter(function (s) { return s.key === self.current.slide.key; });
+    if (refresh) {
+      // Stay on the slide being edited (or the one the builder asked for).
+      var wanted = this.fixedKey || (this.current ? this.current.slide.key : null);
+      var same = (this.payload ? this.payload.slides : []).filter(function (s) { return s.key === wanted; });
       if (same.length) slide = same[0];
     }
 
@@ -360,13 +373,17 @@
     var rendered = V.renderSlide(slide, ctx);
     this.cycles[slide.key] = ((this.cycles[slide.key] || 0) + 1) % 1000000;
     this.el.slides.appendChild(rendered.el);
-    V.fit(rendered.el);
+    // Photos change the height once they load.
+    var imgs = rendered.el.querySelectorAll('img');
+    for (var n = 0; n < imgs.length; n++) imgs[n].addEventListener('load', function () { self.refit(); });
 
     var previous = this.current;
     this.current = { slide: slide, el: rendered.el, etag: etag };
     var swap = function () {
       self.stage.className = self.stage.className.replace(/\btheme-\w+/g, '').trim() + ' theme-' + slide.theme;
       self.stage.classList.toggle('is-full', rendered.fullBleed);
+      // Fit only now: the header may have just appeared or gone, changing the room available.
+      V.fit(rendered.el);
       rendered.el.classList.add('is-active');
     };
     var drop = function () {
