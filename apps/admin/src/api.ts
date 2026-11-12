@@ -88,6 +88,7 @@ export interface Settings {
 }
 export interface Status {
   version: string; uptime_s: number; timezone: string; port: number; urls: string[]; factory_pin: boolean; db_size: number;
+  run_mode: 'servicio' | 'consola' | 'desarrollo'; can_restart: boolean; image_resizer: boolean; logs: { name: string; size: number; modified_at: string }[];
   backups: { name: string; size: number; created_at: string }[];
   online: { deviceId: string; screenId: number | null; ip: string }[];
   counts: { services: number; hidden_services: number; addons: number; screens: number; devices: number; unassigned_devices: number };

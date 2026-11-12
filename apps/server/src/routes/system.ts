@@ -5,9 +5,11 @@ import type { FastifyInstance } from 'fastify';
 import { asObject, idParam, type Ctx } from '../context.js';
 import { HttpError, SPECS, deleteRow, getRow, patchRow } from '../db/repo.js';
 import { createBackup, isBackupName, listBackups } from '../services/backup.js';
-import { saveMedia } from '../services/media.js';
+import { isLogName, listLogs } from '../services/logfile.js';
+import { hasImageResizer, saveMedia } from '../services/media.js';
 import { lanAddresses } from '../services/network.js';
 import { getSettings, patchSettings } from '../services/settings.js';
+import { restartFromInside } from '../windows/cli.js';
 
 const DEVICE_ID = /^[A-Za-z0-9_-]{8,64}$/;
 
@@ -18,7 +20,7 @@ export function bearer(header: string | undefined): string | undefined {
 export function systemRoutes(app: FastifyInstance, ctx: Ctx): void {
   const { db, hub, auth, config } = ctx;
 
-  app.get('/api/health', () => ({ ok: true, version: APP_VERSION }));
+  app.get('/api/health', () => ({ ok: true, app: 'drdrip-vitrina', version: APP_VERSION }));
 
   // --- Access ---------------------------------------------------------------
 
@@ -92,7 +94,8 @@ export function systemRoutes(app: FastifyInstance, ctx: Ctx): void {
 
   // --- System ---------------------------------------------------------------
 
-  app.get('/api/system/status', () => {
+  app.get('/api/system/status', async () => {
+    const resizer = await hasImageResizer();
     const addresses = lanAddresses();
     const count = (table: string) => db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`)?.n ?? 0;
     let dbSize = 0;
@@ -110,6 +113,10 @@ export function systemRoutes(app: FastifyInstance, ctx: Ctx): void {
       addresses,
       urls: [...addresses.map((a) => `http://${a.address}:${config.port}`), ...(config.mdns ? [`http://${config.mdnsName}.local:${config.port}`] : [])],
       factory_pin: auth.isFactoryPin(),
+      run_mode: config.runMode,
+      can_restart: process.platform === 'win32' && config.runMode === 'servicio',
+      image_resizer: resizer,
+      logs: listLogs(ctx.logDir),
       db_size: dbSize,
       backups: listBackups(ctx.backupDir),
       online: hub.online(),
@@ -134,6 +141,26 @@ export function systemRoutes(app: FastifyInstance, ctx: Ctx): void {
       .header('Content-Type', 'application/octet-stream')
       .header('Content-Disposition', `attachment; filename="${name}"`)
       .send(createReadStream(path.join(ctx.backupDir, name)));
+  });
+
+  app.get<{ Params: { name: string } }>('/api/system/logs/:name', (req, reply) => {
+    const { name } = req.params;
+    if (!isLogName(name) || !listLogs(ctx.logDir).some((l) => l.name === name)) throw new HttpError(404, 'No se encontró el registro.');
+    return reply
+      .header('Content-Type', 'text/plain; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="${name}"`)
+      .send(createReadStream(path.join(ctx.logDir, name)));
+  });
+
+  /** Restarts the Windows service. The screens reconnect by themselves. */
+  app.post('/api/system/restart', (_req, reply) => {
+    if (config.runMode !== 'servicio') throw new HttpError(409, 'El reinicio desde el panel solo funciona cuando el programa está instalado como servicio de Windows.');
+    console.log('Reinicio solicitado desde el panel.');
+    // Answer first, then restart, so the panel gets its reply.
+    setTimeout(() => {
+      if (!restartFromInside(config.rootDir)) console.error('No se pudo reiniciar: no se encontró el servicio ni la tarea programada.');
+    }, 300);
+    return reply.code(202).send({ ok: true });
   });
 
   app.post('/api/system/reload-screens', () => {

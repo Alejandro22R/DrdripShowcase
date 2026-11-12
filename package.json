@@ -1,6 +1,6 @@
 {
   "name": "drdrip-vitrina",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Offline-first digital signage for DrDrip (Vega Baja, Puerto Rico)",
   "type": "module",
@@ -15,6 +15,7 @@
     "dev": "tsx watch apps/server/src/index.ts",
     "dev:admin": "npm run dev -w @drdrip/admin",
     "build": "npm run build -w @drdrip/admin && node scripts/build-server.mjs",
+    "build:windows": "node scripts/build-windows.mjs",
     "start": "node dist/server.cjs",
     "typecheck": "tsc -p apps/server --noEmit && tsc -p apps/admin --noEmit",
     "test": "vitest run"
@@ -24,6 +25,7 @@
     "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
     "jsdom": "^31.0.0",
+    "postject": "^1.0.0-alpha.6",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"

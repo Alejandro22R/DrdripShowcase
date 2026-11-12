@@ -23,6 +23,11 @@ export function System() {
     }
   };
   const copy = (text: string) => navigator.clipboard?.writeText(text).then(() => toast('Dirección copiada'), () => toast('No se pudo copiar', 'error'));
+  const restart = async () => {
+    if (!(await confirm('Reiniciar el programa', 'Las pantallas se quedan con lo último que mostraban y se reconectan solas en unos segundos.', 'Reiniciar'))) return;
+    if (await run(() => api('POST', '/api/system/restart'), 'Reiniciando. El panel volverá en unos segundos.')) setTimeout(() => void reload(), 8000);
+  };
+  const modes = { servicio: 'Servicio de Windows (arranca solo con el equipo)', consola: 'Ventana de consola', desarrollo: 'Desarrollo' };
   const reloadScreens = async () => {
     if (await confirm('Recargar pantallas', 'Todos los televisores conectados volverán a cargar la vitrina.', 'Recargar')) {
       await run(() => api('POST', '/api/system/reload-screens'), 'Recarga enviada');
@@ -76,8 +81,16 @@ export function System() {
         </section>
 
         <section class="card">
-          <header class="card-head"><h2>Estado</h2><button class="btn ghost small" onClick={() => void reloadScreens()}>Recargar todas las pantallas</button></header>
+          <header class="card-head">
+            <h2>Estado</h2>
+            <div class="actions">
+              <button class="btn ghost small" onClick={() => void reloadScreens()}>Recargar todas las pantallas</button>
+              <button class="btn ghost small" disabled={!data.can_restart} title={data.can_restart ? '' : 'Disponible cuando el programa está instalado como servicio de Windows'} onClick={() => void restart()}>Reiniciar el programa</button>
+            </div>
+          </header>
           <dl class="facts">
+            <div><dt>Ejecución</dt><dd>{modes[data.run_mode]}</dd></div>
+            <div><dt>Fotos</dt><dd>{data.image_resizer ? 'Se reducen a 800 px (WebP)' : 'Se guardan sin reducir'}</dd></div>
             <div><dt>Versión</dt><dd>{data.version}</dd></div>
             <div><dt>Zona horaria</dt><dd>{data.timezone}</dd></div>
             <div><dt>Puerto</dt><dd>{data.port}</dd></div>
@@ -85,6 +98,13 @@ export function System() {
             <div><dt>Televisores en línea</dt><dd>{data.online.length}</dd></div>
             <div><dt>Internet</dt><dd>{navigator.onLine ? 'Disponible' : 'Sin conexión (no es necesaria)'}</dd></div>
           </dl>
+          {data.logs.length > 0 && (
+            <div class="card-foot">
+              <p class="muted small">Registros del programa (para soporte):{' '}
+                {data.logs.map((l) => <a class="log-link" href={download(`/api/system/logs/${l.name}`)}>{l.name} ({formatBytes(l.size)})</a>)}
+              </p>
+            </div>
+          )}
         </section>
       </div>
     </Page>

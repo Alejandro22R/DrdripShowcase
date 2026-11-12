@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 let V;
 beforeAll(async () => {
   await import('../engine/schedule.js');
+  await import('../engine/brand.js');
   await import('../engine/dom.js');
   await import('../engine/core.js');
   for (const name of ['brand-cover', 'drip-menu', 'service-cards', 'featured-service', 'build-your-drip', 'compact-list', 'promo', 'benefits', 'team', 'free']) {
@@ -153,7 +154,7 @@ describe('template engine', () => {
     for (const s of [slide('drip-menu', { empty: true }), slide('does-not-exist'), slide('promo', { data: {} })]) {
       const { el, fullBleed } = cover(s);
       expect(el.querySelector('.tpl-cover')).not.toBeNull();
-      expect(el.querySelector('.cover-name').textContent).toBe('DrDrip');
+      expect(el.querySelector('.cover-name svg').getAttribute('aria-label')).toBe('DrDrip');
       expect(fullBleed).toBe(true);
     }
   });

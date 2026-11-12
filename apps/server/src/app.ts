@@ -14,6 +14,7 @@ import { screenRoutes } from './routes/screens.js';
 import { bearer, systemRoutes } from './routes/system.js';
 import { Auth } from './services/auth.js';
 import { Hub } from './services/hub.js';
+import { LogFile } from './services/logfile.js';
 
 const PUBLIC_API = ['/api/health', '/api/auth/login', '/api/devices/hello', '/api/public/'];
 
@@ -31,8 +32,18 @@ export async function buildApp(overrides: Partial<AppConfig> = {}): Promise<Buil
   const db = new Db(config.memoryDb ? ':memory:' : path.join(config.dataDir, 'drdrip.db'));
   if (config.seed && isEmptyDb(db)) seed(db);
 
-  const ctx: Ctx = { db, hub: new Hub(db), auth: new Auth(db), config, mediaDir, backupDir };
-  const app = Fastify({ logger: config.logger ? { level: 'warn' } : false, bodyLimit: 5 * 1024 * 1024 });
+  const logDir = path.join(config.dataDir, 'logs');
+  const ctx: Ctx = { db, hub: new Hub(db), auth: new Auth(db), config, mediaDir, backupDir, logDir };
+
+  // Outside development there may be no console (Windows service), so logs go to a rotating file.
+  const logFile = config.logger && !config.memoryDb && config.runMode !== 'desarrollo' ? new LogFile(logDir) : null;
+  logFile?.captureConsole();
+  const app = Fastify({
+    logger: config.logger
+      ? { level: 'warn', ...(logFile ? { stream: { write: (line: string) => (process.stdout.write(line), logFile.write(line.trimEnd())) } } : {}) }
+      : false,
+    bodyLimit: 5 * 1024 * 1024,
+  });
 
   app.setErrorHandler((err: unknown, _req, reply) => {
     if (err instanceof HttpError) return reply.code(err.status).send({ error: err.message });

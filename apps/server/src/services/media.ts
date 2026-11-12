@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+import { isPackaged } from '../config.js';
 import { HttpError } from '../db/repo.js';
 
 const MAX_SIDE = 800;
@@ -30,7 +32,7 @@ export async function saveMedia(mediaDir: string, buffer: Buffer, mimetype: stri
   if (!RAW_TYPES[mimetype]) throw new HttpError(400, 'Formato no admitido. Usa JPG, PNG, WebP, GIF, MP4 o WebM.');
 
   try {
-    const sharp = (await import('sharp')).default;
+    const sharp = await loadSharp();
     const name = `${id}.webp`;
     await sharp(buffer, { failOn: 'error' })
       .rotate()
@@ -39,12 +41,38 @@ export async function saveMedia(mediaDir: string, buffer: Buffer, mimetype: stri
       .toFile(path.join(mediaDir, name));
     return `/media/${name}`;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ERR_MODULE_NOT_FOUND' && !/Cannot find (module|package)|sharp-/.test(String(err)))
-      throw new HttpError(400, 'No se pudo leer la imagen. Prueba con otro archivo.');
+    if (!(err instanceof SharpMissing)) throw new HttpError(400, 'No se pudo leer la imagen. Prueba con otro archivo.');
     const name = `${id}${RAW_TYPES[mimetype]}`;
     writeFileSync(path.join(mediaDir, name), buffer);
     return `/media/${name}`;
   }
+}
+
+class SharpMissing extends Error {}
+type Sharp = typeof import('sharp').default;
+let sharpModule: Sharp | null | undefined;
+
+/**
+ * sharp has native binaries, so it cannot live inside the single .exe. The
+ * packaged program loads it from the node_modules folder that ships next to
+ * the executable; in development it is a normal dependency.
+ */
+async function loadSharp(): Promise<Sharp> {
+  if (sharpModule === undefined) {
+    try {
+      const require = createRequire(path.join(path.dirname(process.execPath), 'index.js'));
+      sharpModule = isPackaged() ? (require('sharp') as Sharp) : (await import('sharp')).default;
+    } catch {
+      sharpModule = null;
+    }
+  }
+  if (!sharpModule) throw new SharpMissing();
+  return sharpModule;
+}
+
+/** Whether photos will be shrunk to WebP on this machine. */
+export async function hasImageResizer(): Promise<boolean> {
+  return loadSharp().then(() => true, () => false);
 }
 
 export function deleteMedia(mediaDir: string, url: string): void {

@@ -43,18 +43,26 @@
     return el;
   }
 
-  var DROP = 'M50 6C50 6 10 60 10 92a40 40 0 0 0 80 0C90 60 50 6 50 6Z';
-  var LEAF = 'M50 120C33 104 33 82 50 62c17 20 17 42 0 58Z';
-
-  /** The DrDrip symbol: a drop with a golden leaf inside. `solid` fills the drop. */
-  V.symbol = function (className, solid) {
-    var el = svg('0 0 100 140', 'symbol ' + (className || ''));
-    el.appendChild(path(DROP, solid
-      ? { fill: 'currentColor' }
-      : { fill: 'none', stroke: 'currentColor', 'stroke-width': '3', 'stroke-linejoin': 'round' }));
-    el.appendChild(path(LEAF, { fill: '#C6A66B' }));
-    el.appendChild(path('M50 118V76', { fill: 'none', stroke: solid ? 'currentColor' : '#242522', 'stroke-width': '1.4', 'stroke-linecap': 'round', opacity: '0.45' }));
+  /** The official DrDrip symbol: the drop takes the text colour, the leaf stays gold. */
+  V.symbol = function (className) {
+    var el = svg(V.ART.symbolBox, 'symbol ' + (className || ''));
+    el.appendChild(path(V.ART.drop, { fill: 'currentColor', 'fill-rule': 'evenodd' }));
+    el.appendChild(path(V.ART.leaf, { fill: '#C6A66B', 'fill-rule': 'evenodd' }));
     return el;
+  };
+
+  /**
+   * Brand name: the official lettering while the name is still "DrDrip",
+   * plain Bodoni text if the client ever renames the brand in the panel.
+   */
+  V.brandName = function (brand, className) {
+    if (!brand || brand.name !== 'DrDrip') return V.h('div', { class: className + ' is-text' }, brand ? brand.name : '');
+    var el = svg(V.ART.wordmarkBox, 'wordmark');
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', 'DrDrip');
+    el.removeAttribute('aria-hidden');
+    el.appendChild(path(V.ART.wordmark, { fill: 'currentColor', 'fill-rule': 'evenodd' }));
+    return V.h('div', { class: className + ' is-wordmark' }, el);
   };
 
   /** Logo for headers and covers: the uploaded image, or the bundled symbol. */

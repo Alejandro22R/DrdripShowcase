@@ -15,6 +15,10 @@ export interface AppConfig {
   /** Use an in-memory database (tests). */
   memoryDb: boolean;
   logger: boolean;
+  /** True when running as the packaged single executable (Node SEA). */
+  packaged: boolean;
+  /** How the program was started: Windows service, console window or development. */
+  runMode: 'servicio' | 'consola' | 'desarrollo';
 }
 
 /** Minimal `key = value` parser for config.ini (comments with # or ;). */
@@ -42,9 +46,22 @@ export function findRootDir(start: string): string {
   return path.resolve(start);
 }
 
+/** True inside the packaged .exe. */
+export function isPackaged(): boolean {
+  try {
+    const sea = process.getBuiltinModule('node:sea') as { isSea(): boolean } | undefined;
+    return sea?.isSea() === true;
+  } catch {
+    return false;
+  }
+}
+
 export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   const env = process.env;
-  const rootDir = overrides.rootDir ?? env.DRDRIP_ROOT ?? findRootDir(process.cwd());
+  const packaged = isPackaged();
+  // The packaged program always works from its own folder, whatever the
+  // current directory is (a service starts in C:\\Windows\\System32).
+  const rootDir = overrides.rootDir ?? env.DRDRIP_ROOT ?? (packaged ? path.dirname(process.execPath) : findRootDir(process.cwd()));
   const iniPath = path.join(rootDir, 'config.ini');
   const ini = existsSync(iniPath) ? parseIni(readFileSync(iniPath, 'utf8')) : {};
 
@@ -63,6 +80,8 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     seed: true,
     memoryDb: false,
     logger: true,
+    packaged,
+    runMode: process.argv.includes('--servicio') ? 'servicio' : packaged ? 'consola' : 'desarrollo',
     ...overrides,
   };
 }

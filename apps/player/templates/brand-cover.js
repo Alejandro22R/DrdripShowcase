@@ -13,7 +13,7 @@
       var phrase = phrases.length ? phrases[ctx.cycle % phrases.length] : '';
       return h('div', { class: 'tpl tpl-cover' },
         h('div', { class: 'cover-logo anim', style: 'font-size:' + (brand.logo_size || 100) / 100 + 'em' }, V.logo(brand, 'cover-symbol')),
-        h('div', { class: 'cover-name anim' }, brand.name),
+        V.brandName(brand, 'cover-name anim'),
         h('div', { class: 'cover-descriptor anim' }, brand.descriptor),
         V.rule('anim'),
         phrase ? h('div', { class: 'cover-phrase anim' }, phrase) : null);

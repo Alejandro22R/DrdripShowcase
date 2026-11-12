@@ -3,7 +3,22 @@ import { MIGRATIONS } from './schema.js';
 
 // node:sqlite is built into Node, so the packaged .exe needs no native add-on.
 // getBuiltinModule keeps bundlers and test runners from trying to resolve it.
-const sqlite = process.getBuiltinModule('node:sqlite') as typeof import('node:sqlite');
+const sqlite = loadSqlite();
+
+function loadSqlite(): typeof import('node:sqlite') {
+  // Node still labels node:sqlite as experimental and prints a warning on load.
+  // It would be the first line of every log, so that one warning is muted.
+  const emit = process.emitWarning;
+  process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
+    if (String(warning).includes('SQLite')) return;
+    (emit as (...args: unknown[]) => void).call(process, warning, ...rest);
+  }) as typeof process.emitWarning;
+  try {
+    return process.getBuiltinModule('node:sqlite') as typeof import('node:sqlite');
+  } finally {
+    process.emitWarning = emit;
+  }
+}
 
 export type Row = Record<string, unknown>;
 export type Param = SQLInputValue;

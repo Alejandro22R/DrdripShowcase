@@ -3,7 +3,7 @@
 **Cliente:** DrDrip — Infusion Services & More (Vega Baja, Puerto Rico)
 **Proyecto:** cartelería digital local (offline-first) para mostrar el menú de servicios y precios en las pantallas de la clínica
 **Versión objetivo:** 0.3.x (servicio de Windows funcionando, pantallas detectadas y conectadas)
-**Estado:** v0.1.0 construida (fases 0 a 5 completas; 6, 7, 10 y 11 parciales; 8 y 9 pendientes). El detalle está en el `README.md`.
+**Estado:** v0.2.0 construida (fases 0 a 5 y 9 completas; 6, 7, 10 y 11 parciales; 8 pendiente). El detalle está en el `README.md`.
 **Fuentes del análisis:** manual de identidad del rebrand, sitio web `drdrippr.com` (inicio y menú de servicios) e Instagram `@drdrippr`
 
 > **Sobre las fuentes:** Instagram bloquea la lectura automática, así que no se pudo revisar su contenido. Para lo visual la fuente de verdad es el **manual de identidad del rebrand**, y para los servicios y precios es el **menú del sitio web**, que debe confirmarse con el cliente antes de cargarse.
@@ -284,7 +284,7 @@ Para lograr automatización real con cualquier televisor, la opción más fiable
 | 6. Animaciones | Transiciones suaves, bienvenida de marca, calidad automática y rendimiento | 🟡 Hecha, falta medir en televisores reales |
 | 7. Robustez offline | Caché en las pantallas, reconexión, horarios y respaldos | 🟡 Parcial |
 | 8. Módulo en línea | Respaldo en la nube, actualizaciones e importación opcional | ⬜ Pendiente |
-| 9. Servicio de Windows y empaquetado | `.exe` único que se instala como servicio, sin ventana de comandos, con inicio automático, reinicio si falla, firewall, kiosko y nombre `drdrip.local` | ⬜ Pendiente |
+| 9. Servicio de Windows y empaquetado | `.exe` único que se instala como servicio, sin ventana de comandos, con inicio automático, reinicio si falla, firewall, kiosko y nombre `drdrip.local` | ✅ Hecha (sin el ícono de bandeja, que es opcional) |
 | 10. Descubrimiento de pantallas | Detección de dispositivos en la red, registro asistido de TVs y adaptadores para Cast y Android TV (luego LG, Samsung y Roku) | 🟡 Parcial: registro asistido y sección Dispositivos |
 | 11. Pulido | CSV, ajuste masivo, historial, PIN, alertas y una semana de uso real | 🟡 Parcial: falta la semana de uso real |
 

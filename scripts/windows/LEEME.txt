@@ -1,0 +1,41 @@
+DrDrip Vitrina {version}
+========================
+
+INSTALAR
+1. Copia esta carpeta completa a C:\DrDripVitrina (no uses "Archivos de programa").
+2. Haz doble clic en DrDripVitrina.exe.
+   - Si aparece SmartScreen: "Mas informacion" y luego "Ejecutar de todas formas".
+   - Acepta el permiso de administrador. Solo se pide esta vez.
+3. Se abre el panel en el navegador. El PIN inicial es 1234; cambialo en Sistema.
+
+Desde ese momento el programa arranca solo cada vez que se enciende el equipo,
+sin ninguna ventana y aunque nadie haya iniciado sesion en Windows.
+
+PANTALLAS
+En el navegador del televisor escribe http://IP-DE-ESTE-PC:3000
+La direccion exacta aparece en el panel, en la seccion Sistema.
+
+ARCHIVOS DE ESTA CARPETA
+  Abrir panel.cmd                           Abre el panel de administracion
+  Pantalla 1 en kiosko.cmd                  Muestra la pantalla 1 a pantalla completa en este PC
+  Kiosko automatico al iniciar sesion.cmd   Abre ese kiosko cada vez que se inicia sesion
+  Quitar kiosko automatico.cmd              Desactiva lo anterior
+  Reiniciar.cmd                             Reinicia el programa
+  Desinstalar.cmd                           Quita el servicio y la regla del firewall
+  config.example.ini                        Copialo como config.ini para cambiar el puerto
+
+DATOS Y RESPALDOS
+Todo se guarda en la carpeta "data": base de datos, fotos, respaldos y registros.
+Desinstalar no borra esa carpeta.
+
+ACTUALIZAR
+1. Ejecuta Desinstalar.cmd.
+2. Reemplaza todo el contenido de la carpeta MENOS "data" y "config.ini".
+3. Haz doble clic en DrDripVitrina.exe.
+
+SI ALGO FALLA
+- Los televisores no conectan: en Windows, la red debe estar marcada como "Privada".
+- Los registros estan en data\logs\vitrina.log y se descargan desde el panel, en Sistema.
+- DrDripVitrina.exe --estado muestra si el programa esta en marcha.
+
+Incluye WinSW (licencia MIT) como envoltorio del servicio de Windows.

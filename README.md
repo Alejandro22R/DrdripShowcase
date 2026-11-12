@@ -2,7 +2,7 @@
 
 Cartelería digital local para **DrDrip — Infusion Services & More** (Vega Baja, Puerto Rico). Muestra el menú de servicios y precios en las pantallas de la clínica, funciona con o sin internet y se administra desde un panel en el navegador.
 
-Versión actual: **0.1.0**. El plan completo está en [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
+Versión actual: **0.2.0**. El plan completo está en [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
 
 | Componente | Dónde se abre |
 |---|---|
@@ -45,18 +45,39 @@ La primera vez se carga el catálogo del sitio web (35 servicios y 7 complemento
 | 6. Animaciones | Hecha, falta medir en TVs | Fundido, cortina con la gota, bienvenida y calidad automática. No se ha medido en un televisor real |
 | 7. Robustez offline | Parcial | Caché de la última versión, reconexión, horarios y respaldos nocturnos. Si el servidor está apagado y el TV se reinicia, la página no carga |
 | 8. Módulo en línea | Pendiente | Respaldo en la nube, aviso de actualizaciones, importación web, acceso remoto |
-| 9. Servicio de Windows y `.exe` | Pendiente | Ya existe el paquete de un solo archivo (`dist/server.cjs`) y el anuncio de `drdrip.local`. Falta Node SEA, WinSW, firewall, kiosko e ícono de bandeja, que hay que probar en Windows |
+| 9. Servicio de Windows y `.exe` | Hecha, falta el ícono de bandeja | `DrDripVitrina.exe` se instala como servicio con un doble clic (WinSW), abre el firewall, se reinicia si falla y se controla desde *Sistema*. GitHub lo compila y lo prueba en Windows en cada cambio. El ícono de bandeja (opcional en el plan) no está hecho |
 | 10. Descubrimiento de pantallas | Parcial | Registro asistido y sección *Dispositivos*. Faltan los adaptadores de Cast, ADB, webOS, Tizen y Roku, que necesitan equipos reales |
 | 11. Pulido | Parcial | CSV, ajuste masivo, historial de precios, PIN y alertas. Falta la semana de uso real |
 
 ## Decisiones tomadas que conviene conocer
 
 - **Semaglutide y Tirzepatide se cargan ocultos.** Aparecen en *Servicios* con *Visible* apagado hasta que el director médico decida si se muestran y con qué texto.
-- **El logo es un símbolo provisional** (gota con hoja dorada dibujada en SVG). El logotipo oficial se sube en *Marca y apariencia*.
+- **El isotipo y el logotipo oficiales están integrados** como trazos que toman el color de cada tema. Si el nombre de la marca se cambia en el panel, se usa texto en Bodoni.
+- **Los televisores serán Google TV**, así que el primer adaptador de descubrimiento (fase 10) será el de Google Cast.
+- **Los datos viven en `data`, dentro de la carpeta del programa.** Al actualizar se reemplaza todo menos `data` y `config.ini`. Otra ubicación se configura con `data_dir`.
 - **El precio en oro usa un tono legible por tema.** El oro oficial `#C6A66B` se mantiene en filetes y acentos; sobre salvia y marfil el texto del precio usa un tono más claro o más oscuro del mismo oro para que se lea a distancia.
 - **Base de datos con `node:sqlite`**, incluida en Node. Así el futuro `.exe` no necesita módulos nativos.
 - **Los precios cambian en vivo; la composición de una pantalla espera a *Publicar*.** Un cambio de precio llega a los televisores en uno o dos segundos sin publicar nada.
 - **`sharp` es opcional en tiempo de ejecución.** Si no está disponible, la foto se guarda sin reducir.
+
+## Programa para Windows
+
+```bash
+npm run build:windows
+```
+
+Genera `release/DrDripVitrina/`, la carpeta que se copia a `C:\DrDripVitrina` en el PC de la clínica. Se puede generar desde Windows, Linux o macOS. También se descarga ya compilada y probada desde GitHub: pestaña *Actions*, flujo *Windows build*, artefacto `DrDripVitrina-windows`.
+
+| Acción | Cómo |
+|---|---|
+| Instalar | Doble clic en `DrDripVitrina.exe` y aceptar el permiso de administrador |
+| Abrir el panel | Doble clic otra vez (no abre una segunda copia) |
+| Kiosko en una pantalla conectada al PC | `Pantalla 1 en kiosko.cmd`, o `Kiosko automatico al iniciar sesion.cmd` |
+| Reiniciar | *Sistema* en el panel, o `Reiniciar.cmd` |
+| Desinstalar | `Desinstalar.cmd` (conserva `data`) |
+| Diagnosticar | `DrDripVitrina.exe --estado`, y los registros en `data\logs\vitrina.log` |
+
+Si el servicio no se puede registrar, el instalador crea una tarea programada que arranca el programa al encender el equipo.
 
 ## Estructura
 
@@ -69,7 +90,7 @@ apps/
     templates/  un archivo por plantilla
     fonts/      Bodoni Moda y Montserrat (WOFF2, licencia OFL)
 packages/shared/   dinero, formato de precios y catálogo de plantillas
-scripts/           empaquetado del servidor
+scripts/           empaquetado del servidor y del programa para Windows
 docs/              plan de trabajo
 ```
 

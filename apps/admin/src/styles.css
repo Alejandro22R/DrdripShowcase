@@ -255,3 +255,5 @@ input.invalid { border-color: var(--danger); }
   .table td.row-actions { justify-content: flex-end; }
   .reminders li { flex-direction: column; align-items: flex-start; }
 }
+
+.log-link { margin-right: 12px; white-space: nowrap; }

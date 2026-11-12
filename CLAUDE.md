@@ -15,7 +15,7 @@
 - Zona horaria de la clínica: America/Puerto_Rico (UTC-4 fijo). Usar `clinicNow()` / `Vitrina.clinicTime()`.
 - Rutas con path.join; probar en Windows. Quitar la firma del .exe antes de empaquetar.
 - Base de datos con `node:sqlite` (sin módulos nativos). Migraciones en `apps/server/src/db/schema.ts`: solo agregar, nunca editar.
-- El .exe se instalará como servicio de Windows (WinSW): sin ventana, arranque automático,
+- El .exe se instala como servicio de Windows (WinSW, `apps/server/src/windows/cli.ts`): sin ventana, arranque automático,
   instancia única, reinicio si falla y regla de firewall. Datos fuera de la carpeta del programa.
 - Descubrimiento de pantallas: un adaptador independiente por marca (Cast, ADB, webOS, Tizen, Roku)
   y registro asistido como respaldo universal. Nunca asumir que un TV acepta control remoto.
@@ -28,3 +28,5 @@
 - `npm run dev`: servidor con recarga (puerto 3000). `npm run dev:admin`: panel con Vite.
 - `npm run build`: compila el panel y empaqueta el servidor en `dist/server.cjs`. `npm start` lo ejecuta.
 - `npm test`: Vitest (shared, server, player).
+- `npm run build:windows`: genera `release/DrDripVitrina/` (exe con Node SEA, WinSW, player, panel y sharp).
+  El flujo `.github/workflows/windows.yml` lo compila y prueba la instalación como servicio en Windows.

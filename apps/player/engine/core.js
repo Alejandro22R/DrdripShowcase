@@ -147,7 +147,7 @@
     var stage = this.stage;
     stage.textContent = '';
     this.el = {
-      bg: h('div', { class: 'bg' }, h('div', { class: 'bg-glow' }), V.symbol('bg-drop', true)),
+      bg: h('div', { class: 'bg' }, h('div', { class: 'bg-glow' }), V.symbol('bg-drop')),
       header: h('header', { class: 'chrome chrome-header' }),
       slides: h('main', { class: 'slides' }),
       footer: h('footer', { class: 'chrome chrome-footer' }),
@@ -270,7 +270,7 @@
     el.header.appendChild(h('div', { class: 'brandmark', style: 'font-size:' + (brand.logo_size || 100) / 100 + 'em' },
       V.logo(brand, 'brandmark-symbol'),
       h('div', { class: 'brandmark-text' },
-        h('span', { class: 'brandmark-name' }, brand.name),
+        V.brandName(brand, 'brandmark-name'),
         h('span', { class: 'brandmark-descriptor' }, brand.descriptor))));
     this.clockEl = p.screen.show_clock ? h('div', { class: 'clock' }) : null;
     if (this.clockEl) el.header.appendChild(this.clockEl);
@@ -428,7 +428,7 @@
     });
     var overlay = h('div', { class: 'welcome theme-' + theme },
       h('div', { class: 'welcome-logo' }, V.logo(brand, 'welcome-symbol')),
-      h('div', { class: 'welcome-name' }, brand.name),
+      V.brandName(brand, 'welcome-name'),
       h('div', { class: 'welcome-descriptor' }, letters),
       V.rule('welcome-rule'));
     this.stage.appendChild(overlay);

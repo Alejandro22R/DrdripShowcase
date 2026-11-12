@@ -107,7 +107,7 @@ function App() {
     <div class={`shell${menuOpen ? ' menu-open' : ''}`}>
       <aside class="sidebar">
         <a class="sidebar-brand" href="#/">
-          <img src="/player/img/symbol.svg" alt="" />
+          <img src="/player/img/symbol-light.svg" alt="" />
           <span>
             <strong>DrDrip</strong>
             <small>Vitrina</small>

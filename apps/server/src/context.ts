@@ -11,6 +11,7 @@ export interface Ctx {
   config: AppConfig;
   mediaDir: string;
   backupDir: string;
+  logDir: string;
 }
 
 export function idParam(value: unknown): number {
