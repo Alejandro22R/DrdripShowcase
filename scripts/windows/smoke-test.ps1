@@ -73,3 +73,4 @@ Remove-Item (Join-Path $dir 'data') -Recurse -Force -ErrorAction SilentlyContinu
 
 if ($failed) { Write-Host "`nSMOKE TEST FAILED"; exit 1 }
 Write-Host "`nSmoke test passed"
+exit 0
