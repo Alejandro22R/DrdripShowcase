@@ -1,6 +1,6 @@
 {
   "name": "drdrip-vitrina",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "Offline-first digital signage for DrDrip (Vega Baja, Puerto Rico)",
   "type": "module",

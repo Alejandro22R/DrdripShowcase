@@ -59,6 +59,22 @@ Check 'server is back after restart' { WaitHealth 60 }
 Check 'it is a new process' { (Get-Process DrDripVitrina | Select-Object -First 1).Id -ne $before }
 Check 'session survived the restart' { (Invoke-RestMethod "$base/api/system/status" -Headers $auth).version -ne $null }
 
+Write-Host "Update from another folder"
+$dir2 = Join-Path (Split-Path $dir -Parent) 'DrDripVitrina-otra'
+Remove-Item $dir2 -Recurse -Force -ErrorAction SilentlyContinue
+robocopy $dir $dir2 /E /XD data /NFL /NDL /NJH /NJS /NP | Out-Null
+& (Join-Path $dir2 'DrDripVitrina.exe') --sin-navegador --sin-pausa
+Check 'installer from the other folder exits with 0' { $LASTEXITCODE -eq 0 }
+Check 'service now points to the other folder' { (sc.exe qc DrDripVitrina | Out-String) -match [regex]::Escape($dir2) }
+Check 'data came along to the other folder' { Test-Path (Join-Path $dir2 'data\drdrip.db') }
+Check 'server answers after the switch' { WaitHealth 40 }
+Check 'process runs from the other folder' { (Get-Process DrDripVitrina | Select-Object -First 1).Path -like "$dir2*" }
+& $exe --sin-navegador --sin-pausa
+Check 'switching back exits with 0' { $LASTEXITCODE -eq 0 }
+Check 'service points to the first folder again' { (sc.exe qc DrDripVitrina | Out-String) -match [regex]::Escape("$dir\") }
+Check 'server answers after switching back' { WaitHealth 40 }
+Remove-Item $dir2 -Recurse -Force -ErrorAction SilentlyContinue
+
 Write-Host "Uninstall"
 & $exe --desinstalar --sin-pausa
 Check 'uninstaller exit code is 0' { $LASTEXITCODE -eq 0 }

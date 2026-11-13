@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { LogFile, isLogName, listLogs } from '../src/services/logfile.js';
-import { browserCandidates, elevateCommand, firewallAddArgs, kioskArgs, parseArgs, parseScState, taskCreateArgs } from '../src/windows/cli.js';
+import { browserCandidates, elevateCommand, firewallAddArgs, kioskArgs, parseArgs, parseScBinaryPath, parseScState, samePath, taskCreateArgs } from '../src/windows/cli.js';
 import { stripSignature } from '../../../scripts/pe-signature.mjs';
 
 describe('command line of the .exe', () => {
@@ -48,6 +48,16 @@ describe('command line of the .exe', () => {
     expect(parseScState(0, '        STATE              : 2  START_PENDING')).toBe('starting');
     expect(parseScState(1060, '[SC] EnumQueryServicesStatus:OpenService FAILED 1060')).toBe('missing');
     expect(parseScState(null, '')).toBe('missing');
+  });
+
+  it('finds which folder the service was installed from, in any Windows language', () => {
+    const es = '        TIPO_INICIO        : 2   AUTO_START\r\n        NOMBRE_RUTA_BINARIO: "C:\\proyectos\\DrdripShowcase-main\\DrDripVitrinaService.exe"\r\n        GRUPO_ORDEN_CARGA  :';
+    const en = '        BINARY_PATH_NAME   : C:\\DrDripVitrina\\DrDripVitrinaService.exe\r\n        LOAD_ORDER_GROUP   :';
+    expect(parseScBinaryPath(es)).toBe('C:\\proyectos\\DrdripShowcase-main\\DrDripVitrinaService.exe');
+    expect(parseScBinaryPath(en)).toBe('C:\\DrDripVitrina\\DrDripVitrinaService.exe');
+    expect(parseScBinaryPath('[SC] OpenService FAILED 1060')).toBeNull();
+    expect(samePath('C:\\DrDripVitrina\\DrDripVitrinaService.exe', 'c:\\drdripvitrina\\DrDripVitrinaService.EXE')).toBe(true);
+    expect(samePath('C:\\proyectos\\DrdripShowcase-main\\DrDripVitrinaService.exe', 'C:\\DrDripVitrina\\DrDripVitrinaService.exe')).toBe(false);
   });
 
   it('looks for Edge first, then Chrome', () => {

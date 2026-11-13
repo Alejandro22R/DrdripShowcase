@@ -5,12 +5,12 @@
 // itself, so the folder ships WinSW as DrDripVitrinaService.exe. WinSW starts
 // "DrDripVitrina.exe --servicio", watches it and restarts it if it dies.
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
 import { APP_VERSION } from '@drdrip/shared';
-import { loadConfig } from '../config.js';
+import { loadConfig, parseIni } from '../config.js';
 import { lanAddresses } from '../services/network.js';
 
 export const SERVICE_ID = 'DrDripVitrina';
@@ -127,17 +127,92 @@ function taskExists(): boolean {
   return sh('schtasks', ['/Query', '/TN', TASK_NAME]).status === 0;
 }
 
-/** Asks the local server who it is. Resolves false when nothing of ours answers. */
-export function isVitrinaRunning(port: number, timeoutMs = 1500): Promise<boolean> {
+/** Version of the vitrina answering on this port, or null when nothing of ours answers. */
+export function runningVersion(port: number, timeoutMs = 1500): Promise<string | null> {
   return new Promise((resolve) => {
     const req = http.get({ host: '127.0.0.1', port, path: '/api/health', timeout: timeoutMs }, (res) => {
       let body = '';
       res.on('data', (chunk) => (body += chunk));
-      res.on('end', () => resolve(body.includes('"app":"drdrip-vitrina"')));
+      res.on('end', () => {
+        try {
+          const health = JSON.parse(body) as { app?: string; version?: string };
+          resolve(health.app === 'drdrip-vitrina' ? String(health.version ?? '') : null);
+        } catch {
+          resolve(null);
+        }
+      });
     });
     req.on('timeout', () => req.destroy());
-    req.on('error', () => resolve(false));
+    req.on('error', () => resolve(null));
   });
+}
+
+export async function isVitrinaRunning(port: number, timeoutMs = 1500): Promise<boolean> {
+  return (await runningVersion(port, timeoutMs)) !== null;
+}
+
+async function waitUntilStopped(port: number, seconds: number): Promise<boolean> {
+  for (let i = 0; i < seconds * 2; i++) {
+    if (!(await isVitrinaRunning(port, 800))) return true;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
+/**
+ * Program registered for the service, read from `sc qc`. The labels change
+ * with the Windows language, so it looks for the quoted .exe path instead.
+ */
+export function parseScBinaryPath(output: string): string | null {
+  const quoted = /"([^"\r\n]+\.exe)"/i.exec(output);
+  if (quoted) return quoted[1];
+  const bare = /:\s*([A-Za-z]:\\[^\r\n]*?\.exe)/i.exec(output);
+  return bare ? bare[1] : null;
+}
+
+export function samePath(a: string, b: string): boolean {
+  return path.win32.resolve(a).toLowerCase() === path.win32.resolve(b).toLowerCase();
+}
+
+function registeredWrapper(): string | null {
+  if (serviceState() === 'missing') return null;
+  return parseScBinaryPath(sh('sc', ['qc', SERVICE_ID]).output);
+}
+
+/** Data folder of another installation, honouring its config.ini. */
+function dataDirOf(root: string): string {
+  const ini = path.join(root, 'config.ini');
+  const custom = existsSync(ini) ? parseIni(readFileSync(ini, 'utf8')).data_dir : undefined;
+  return path.resolve(root, custom || 'data');
+}
+
+/**
+ * An installation from another folder (usually an older version) is stopped
+ * and unregistered so this one can take its place. When this folder has no
+ * database yet, the other installation's data comes along.
+ */
+async function replaceOtherInstall(otherWrapper: string, root: string, dataDir: string, port: number): Promise<void> {
+  const otherRoot = path.dirname(otherWrapper);
+  say(`Se encontró otra instalación en ${otherRoot}.`);
+  say('Se detiene y se reemplaza por esta versión.');
+  if (existsSync(otherWrapper)) {
+    sh(otherWrapper, ['stop']);
+    sh(otherWrapper, ['uninstall']);
+  }
+  if (serviceState() !== 'missing') {
+    sh('sc', ['stop', SERVICE_ID]);
+    sh('sc', ['delete', SERVICE_ID]);
+  }
+  await waitUntilStopped(port, 30);
+
+  const otherData = dataDirOf(otherRoot);
+  if (!existsSync(path.join(dataDir, 'drdrip.db')) && existsSync(path.join(otherData, 'drdrip.db'))) {
+    cpSync(otherData, dataDir, { recursive: true, filter: (src) => !src.includes(`${path.sep}logs`) });
+    say(`Tus datos se copiaron desde ${otherData}.`);
+  }
+  const otherIni = path.join(otherRoot, 'config.ini');
+  if (!existsSync(path.join(root, 'config.ini')) && existsSync(otherIni)) cpSync(otherIni, path.join(root, 'config.ini'));
+  say(`Cuando compruebes que todo funciona puedes borrar ${otherRoot}.\n`);
 }
 
 async function waitUntilRunning(port: number, seconds: number): Promise<boolean> {
@@ -202,7 +277,22 @@ async function install(args: Args): Promise<number> {
   say(`DrDrip Vitrina v${APP_VERSION}: instalación`);
   say(`Carpeta: ${root}\n`);
 
-  let running = await isVitrinaRunning(config.port);
+  const other = registeredWrapper();
+  if (other && !samePath(other, wrapper)) await replaceOtherInstall(other, root, config.dataDir, config.port);
+  // Only one way of starting the program may exist: a task left by an older install would fight for the port.
+  if (taskExists()) {
+    sh('schtasks', ['/End', '/TN', TASK_NAME]);
+    sh('schtasks', ['/Delete', '/TN', TASK_NAME, '/F']);
+    await waitUntilStopped(config.port, 15);
+  }
+
+  const version = await runningVersion(config.port);
+  if (version !== null && version !== APP_VERSION) {
+    say(`Sigue funcionando la versión ${version || 'anterior'} desde otra carpeta.`);
+    say('Ejecuta Desinstalar.cmd en la carpeta de esa versión y vuelve a abrir este programa.');
+    return finish(args, false);
+  }
+  let running = version !== null;
   const state = serviceState();
   if (!running && state === 'missing' && !taskExists() && !(await isPortFree(config.port))) {
     say(`El puerto ${config.port} ya lo está usando otro programa.`);
@@ -313,12 +403,17 @@ async function restart(args: Args): Promise<number> {
 
 async function status(): Promise<number> {
   const config = loadConfig();
-  const running = await isVitrinaRunning(config.port);
-  say(`DrDrip Vitrina v${APP_VERSION}`);
+  const version = await runningVersion(config.port);
+  const registered = registeredWrapper();
+  const ours = registered !== null && samePath(registered, path.join(config.rootDir, WRAPPER_NAME));
+  say(`DrDrip Vitrina v${APP_VERSION} (este programa)`);
+  say(`Carpeta:             ${config.rootDir}`);
   say(`Servicio de Windows: ${{ missing: 'no instalado', running: 'en marcha', stopped: 'detenido', starting: 'arrancando' }[serviceState()]}`);
+  if (registered) say(`Servicio instalado desde: ${path.dirname(registered)}${ours ? '' : '  <- OTRA CARPETA'}`);
   say(`Tarea programada:    ${taskExists() ? 'creada' : 'no'}`);
-  say(`Responde en el puerto ${config.port}: ${running ? 'sí' : 'no'}`);
-  return running ? 0 : 1;
+  say(`Responde en el puerto ${config.port}: ${version === null ? 'no' : `sí, versión ${version}`}`);
+  if (registered && !ours) say('\nHaz doble clic en DrDripVitrina.exe de esta carpeta para que reemplace a la otra instalación.');
+  return version === APP_VERSION && ours ? 0 : 1;
 }
 
 function kioskStartupPath(): string | null {
@@ -405,10 +500,15 @@ export async function runWindowsCommand(argv: string[]): Promise<number | null> 
     case 'kiosko-auto':
       return kioskAuto(args);
     default: {
-      // Double click. If it is already running, this is the single-instance
-      // check: just open the panel instead of starting a second copy.
+      // Double click. When this same installation is already running, this is
+      // the single-instance check: just open the panel. Anything else (nothing
+      // running, another version, or a service registered from another folder)
+      // goes through the installer, which takes over.
       const config = loadConfig();
-      if (await isVitrinaRunning(config.port)) {
+      const version = await runningVersion(config.port);
+      const registered = registeredWrapper();
+      const ours = registered === null || samePath(registered, path.join(config.rootDir, WRAPPER_NAME));
+      if (version === APP_VERSION && ours) {
         if (args.browser) openInBrowser(`http://localhost:${config.port}/admin/`);
         return 0;
       }

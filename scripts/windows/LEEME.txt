@@ -29,9 +29,18 @@ Todo se guarda en la carpeta "data": base de datos, fotos, respaldos y registros
 Desinstalar no borra esa carpeta.
 
 ACTUALIZAR
+Opcion A, en una carpeta nueva (la mas facil):
+1. Descomprime la version nueva en otra carpeta, por ejemplo C:\DrDripVitrina-nueva.
+2. Haz doble clic en su DrDripVitrina.exe.
+   Detiene la version anterior, ocupa su lugar y se trae tus datos.
+3. Cuando compruebes que todo funciona, borra la carpeta anterior.
+
+Opcion B, en la misma carpeta:
 1. Ejecuta Desinstalar.cmd.
 2. Reemplaza todo el contenido de la carpeta MENOS "data" y "config.ini".
 3. Haz doble clic en DrDripVitrina.exe.
+
+Para saber que version esta funcionando: DrDripVitrina.exe --estado
 
 SI ALGO FALLA
 - Los televisores no conectan: en Windows, la red debe estar marcada como "Privada".

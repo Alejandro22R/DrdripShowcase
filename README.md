@@ -2,7 +2,7 @@
 
 Cartelería digital local para **DrDrip — Infusion Services & More** (Vega Baja, Puerto Rico). Muestra el menú de servicios y precios en las pantallas de la clínica, funciona con o sin internet y se administra desde un panel en el navegador.
 
-Versión actual: **0.2.1**. El plan completo está en [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
+Versión actual: **0.2.2**. El plan completo está en [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
 
 | Componente | Dónde se abre |
 |---|---|

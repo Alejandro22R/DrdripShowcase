@@ -1,7 +1,7 @@
 export * from './money.js';
 export * from './templates.js';
 
-export const APP_VERSION = '0.2.1';
+export const APP_VERSION = '0.2.2';
 export const CLINIC_TIMEZONE = 'America/Puerto_Rico';
 /** Puerto Rico is UTC-4 all year (no daylight saving time). */
 export const CLINIC_UTC_OFFSET_MIN = -240;
