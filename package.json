@@ -5,7 +5,7 @@
   "description": "Offline-first digital signage for DrDrip (Vega Baja, Puerto Rico)",
   "type": "module",
   "engines": {
-    "node": ">=22.13"
+    "node": "^22.22.2 || ^24.15.0"
   },
   "workspaces": [
     "packages/*",

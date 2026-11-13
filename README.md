@@ -14,10 +14,14 @@ El PIN de fábrica del panel es `1234`. El panel recuerda cambiarlo en *Sistema*
 
 ## Cómo ejecutarlo
 
-Requiere Node.js 22.13 o más reciente.
+Requiere Node.js **24 LTS** (o 22 LTS). Las versiones impares, como la 25, no tienen soporte largo y algunas dependencias no las admiten.
+
+En Windows, clona el proyecto **fuera de OneDrive** (por ejemplo en `C:\Proyectos`). OneDrive sincroniza `node_modules` mientras se instala y puede dejar archivos incompletos, lo que produce errores como `is not a valid Win32 application` al compilar.
+
+Usa `npm ci` en lugar de `npm install`: instala exactamente las versiones de `package-lock.json`.
 
 ```bash
-npm install
+npm ci
 ```
 
 ```bash
